@@ -1062,7 +1062,15 @@ function calc_dH(vars, stage) {
 		vars.stages.forEach(stage => {
 			var measurements = stage.measurements.slice(0);
 			var last = measurements[measurements.length - 1];
-			var calc_dH = Util.valueOf(measurements[1], "Axial Displacement 2") === 0; // TODO
+			var calc_dH = (() => {
+				var r = true, v = Util.valueOf(measurements[0], "Axial Displacement 2");
+				for(var i = 1; i < Math.min(10, measurements.length) && r; ++i) {
+					r = (v === Util.valueOf(measurements[i], "Axial Displacement 2"));
+				}
+				return r;
+			})();
+			
+			// Util.valueOf(measurements[1], "Axial Displacement 2") === 0; // TODO
 			// var yZ = last.y;
 			
 			measurements.forEach(mt => { 
@@ -1446,7 +1454,31 @@ function calc_dH(vars, stage) {
 		setup_bjerrum: setup_bjerrum,
 		setup_isotachen: setup_isotachen,
 		
-		calc_slopeAndYIntercept: calc_slopeAndYIntercept
+		calc_slopeAndYIntercept: calc_slopeAndYIntercept,
+		
+		indexOf: (stage, measurement) => stage.measurements.indexOf(measurement),
+		maxOf: (stage, name) => {
+			var max, r, mts = stage.measurements;
+			// if(name !== "B Value") mts = stage.measurements.slice(0, 400);
+			mts.map(measurement => {
+				const value = Util.valueOf(measurement, name);
+				if(r === undefined || max < value) {
+					r = measurement;
+					max = value;
+				}
+			});
+			return r;
+		},
+		findEv: (stage, threshold) => {
+			var found = false;
+			for(let i = 0; i < stage.measurements.length && !found; ++i) {
+				const mt = stage.measurements[i];
+				const v = Util.valueOf(mt, "Axial Strain");
+				if(v >= threshold) {
+					return mt;
+				}
+			}
+		}
 	});
 
 });

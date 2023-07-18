@@ -2,6 +2,8 @@
 
 window.locale.loc = 'nl'; // TODO
 
+const locale = window.locale.prefixed("devtools:Renderer:gds:");
+
 const js = require("js");
 const regression = require("lib/node_modules/regression/dist/regression");
 
@@ -9,32 +11,6 @@ const GDS = require("./Util");
 const Button = require("vcl/ui/Button");
 const Tab = require("vcl/ui/Tab");
 const Control = require("vcl/Control");
-
-const locale = window.locale.prefixed("devtools:Renderer:gds:");
-
-const indexOf = (stage, measurement) => stage.measurements.indexOf(measurement);
-const maxOf = (stage, name) => {
-		var max, r, mts = stage.measurements;
-		if(name !== "B Value") mts = stage.measurements.slice(0, 400);
-		mts.map(measurement => {
-			const value = GDS.valueOf(measurement, name);
-			if(r === undefined || max < value) {
-				r = measurement;
-				max = value;
-			}
-		});
-		return r;
-	};
-const findEv = (stage, threshold) => {
-	var found = false;
-	for(let i = 0; i < stage.measurements.length && !found; ++i) {
-		const mt = stage.measurements[i];
-		const v = GDS.valueOf(mt, "Axial Strain");
-		if(v >= threshold) {
-			return mt;
-		}
-	}
-};
 
 /* Setup (must be called in same order) */
 function setup_taylor(vars) {
@@ -58,7 +34,7 @@ function setup_stages_1(vars, sacosh) {
 		stage.dV = GDS.valueOf(stage.measurements[N], "Volume Change") * -1;
 		stage.ui = GDS.valueOf(stage.measurements[0], "Pore Pressure");
 		stage.uf = GDS.valueOf(stage.measurements[N], "Pore Pressure");
-		stage.b = maxOf(stage, "B Value");
+		stage.b = GDS.maxOf(stage, "B Value");
 		stage["B Value"] = stage.b["B Value"];
 	});
 	
@@ -333,15 +309,12 @@ function setup_measurements(vars) {
 	 		mt.qs_c = mt.qs_r - mt.d_o1_fp - mt.d_o1_m_alt;
 	 		
 	 		mt.d_u = (() => { 
-	 			/* Excess Porewater Pressure:  this is the difference between the 
-	 			porewater pressure (PWP) measurement on each data row and the base 
-	 			porewater pressure at the beginning of the shear stage 
-	 			
-	 			( ∆ u = un;s − u0;s ; 
-	 				subindex “n” represents the datarow number, 
-	 				“s” denotes the shear stage 
-	 				and “0” the value for the first data row in the shear stage
-	 			). 
+	 			/*- Excess Porewater Pressure:  this is the difference between the porewater pressure (PWP) measurement on each data row and the base porewater pressure at the beginning of the shear stage 
+		 			( ∆ u = un;s − u0;s ; 
+		 				subindex “n” represents the datarow number, 
+		 				“s” denotes the shear stage 
+		 				and “0” the value for the first data row in the shear stage
+		 			). 
 	 			*/
 	 			var pwp = GDS.valueOf(mt, "Pore Pressure");
 	 			var base = GDS.valueOf(arr[0], "Pore Pressure");
@@ -353,7 +326,7 @@ function setup_measurements(vars) {
 				var cp = GDS.valueOf(mt, "Radial Pressure");
 				var bp = GDS.valueOf(mt, "Back Pressure")
 
-				return cp - bp;
+				return cp - bp + mt.d_u;
 	 		})();
 	 		mt.o1 = (() => { 
 	 			/*- Vertical Stress (kPa): σ1 = σ3 + qs;corrected */
@@ -398,15 +371,14 @@ function setup_measurements(vars) {
 				/* Shear Stress (q) (kPa):  t = (σ′1 − σ′3) / 2 */
 				return (mt.o_1 - mt.o_3) / 2;
 			})();
-
 		}
 	}));
 }
-function setup_stages_2(vars) {
+function setup_mohr_coulomb(vars, root) {
 	const stage = vars.stages.SH;
-	const max_q = maxOf(stage, "qs_c");
-	const max_o_1o_3 = maxOf(stage, "o_1o_3");
-	const usr_Ev = findEv(stage, 2);
+	const max_q = GDS.maxOf(stage, "qs_c");
+	const max_o_1o_3 = GDS.maxOf(stage, "o_1o_3");
+	const usr_Ev = GDS.findEv(stage, vars.Ev_usr);
 
 	const values = (mt, maxOf) => ({
 		Ev: GDS.valueOf(mt, "Axial Strain"),
@@ -414,8 +386,9 @@ function setup_stages_2(vars) {
 		o_3: mt.o_3,//GDS.valueOf(mt, "Eff. Radial Stress"),//mt.o_3,
 		o_1: mt.o_1,
 		o_1o_3: mt.o_1o_3,
-		s_: (mt.o_1 + mt.o_3) / 2,
-		t: (mt.o_1 - mt.o_3) / 2,
+		p_: mt.mes_p_,
+		s_: mt.ens_s_,//(mt.o_1 + mt.o_3) / 2,
+		t: mt.ss_t,//(mt.o_1 - mt.o_3) / 2,
 		e50und: (() => {
 			/*- E50;und = (qmax/2) / (εqmax / 2 / 100) / (1000)
 			
@@ -450,74 +423,60 @@ function setup_stages_2(vars) {
 		// max o_3 - Called from calculation section; field "Axial Strain (%)". User-defined strain value for which values and parameters will be reported.
 		usr_Ev: values(usr_Ev)
 	});
-	
-	const x = [stage.max_q.mt.ens_s_,	stage.max_o_1o_3.mt.ens_s_,	stage.usr_Ev.mt.ens_s_];
-	const y = [stage.max_q.mt.ss_t, 	stage.max_o_1o_3.mt.ss_t,	stage.usr_Ev.mt.ss_t];
-	
-	const sayi = GDS.calc_slopeAndYIntercept(x, y);
-	
-	stage.sayi = sayi;
-	
+
+	const shss = [
+    	js.$[root.ud("#select-sample-1").getValue()], 
+    	js.$[root.ud("#select-sample-2").getValue()], 
+    	js.$[root.ud("#select-sample-3").getValue()]
+    ]
+    	.map(n => n.qs("devtools/Editor<gds>:root"))
+    	.map(r => r.vars(["variables.stages.SH"]))
+    	.filter(o => o);
+    	
+    if(shss.length !== 3) return root.print("mohr canceled");
+
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
-		var obj = stage[k];
+
+		const x = [shss[0][k].mt.ens_s_,	shss[1][k].mt.ens_s_,	shss[2][k].mt.ens_s_];
+		const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
+		const mohr = GDS.calc_slopeAndYIntercept(x, y);
+
+		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360
+		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
 		
-		obj.phi_ = Math.asin(sayi.a);
-		obj.c_ = sayi.b / Math.cos(obj.phi_);
-		obj.mc = {
-			r: (obj.o_1 - obj.o_3) / 2,
-			x: (obj.o_1 + obj.o_3) / 2,
-			y: 0
-		};
-		// obj.mc.serie = (() => {
-		// 	var arr = [];
-		// 	for(var x = obj.mc.x - obj.mc.r; x < obj.mc.x + obj.mc.r; x += 1) {
-		// 		var radians = (x - (obj.mc.x - obj.mc.r)) * Math.PI / 180;
-		// 		// var x = stage[k.mc.x + stage[k.mc.r * Math.cos(radians);
-		// 		var y = obj.mc.r * Math.sin(radians); 
+		for(var s = 0; s < 3; ++s) {
+			shss[s][k].mohr = js.mi(mohr);
 
-		// 		arr[arr.push({x: x, y: y}) - 1]["mc_y" + i] = y;
-		// 	}
-		// 	return arr;
-		// })()
-		
-		obj.mc.serie = (() => {
-			var center = obj.mc;
-			var radius = obj.mc.r;
-			var points = [];
-
-			for (var theta = 0; theta <= 2 * Math.PI; theta += Math.PI / 90) {
-				var x = center.x + radius * Math.cos(theta);
-				var y = center.y + radius * Math.sin(theta);
-				
-				// points.push({ x: x, y: y });
-				if(y >= 0) {
-					points[points.push({x: x, y: y}) - 1]["mc_y" + i] = y;
-				} else if(!points.closed) {
-					points[points.push({x: x, y: y}) - 1]["mc_y" + i] = 0;
-					points.closed = true;
-				}
-			}
-
-			return points;
-		})()
-	});
-
+			js.mi(shss[s][k].mohr, {
+				r: (shss[s][k].o_1 - shss[s][k].o_3) / 2,
+				x: (shss[s][k].o_1 + shss[s][k].o_3) / 2,
+				y: 0
+			});
+			
+			shss[s][k].mohr.serie = (() => {
+				var center = shss[s][k].mohr;
+				var radius = shss[s][k].mohr.r;
+				var points = [];
 	
-/*-
-
-for (let angle = 0; angle <= 360; angle += 5) {
-  var radians = angle * Math.PI / 180;
-  var x = 30 + 30 * Math.cos(radians); // Circle center x = 30, radius = 30
-  var y = 30 * Math.sin(radians); // Circle center y = 0, radius = 30
-
-  // Add the point to the dataset
-  data.push({
-    x: x,
-    y: y
-  });
-}
-
-*/
+				for (var theta = 0; theta <= 2 * Math.PI; theta += Math.PI / 90) {
+					var x = center.x + radius * Math.cos(theta);
+					var y = center.y + radius * Math.sin(theta);
+					
+					if(y >= 0) {
+						points[points.push({x: x, y: y}) - 1]["mc_y" + s] = y;
+					} else if(!points.closed) {
+						points[points.push({x: x, y: y}) - 1]["mc_y" + s] = 0;
+						points.closed = true;
+					}
+				}
+	
+				return points;
+			})();
+		}
+	});
+	refresh_mohr_coulomb_parameters(vars);
+	root.print("mohr params refreshed");
+	
 }
 function setup_parameters(vars) {
 	const hvis = (section, items) => items.map(item => {
@@ -617,10 +576,17 @@ function setup_parameters(vars) {
 			["t"],
 			["phi_"],
 			["c_"],
+			["a"],
+			["b"],
 			["e50und"]
 		];
-	const adjustC = (type, key) => (c) => {
-		c.name += js.sf(" - %s", locale("Section:ShearPhase-" + type));
+
+	const adjustC = (type, key, value) => (c) => {
+		if(value !== undefined) {
+			c.name += js.sf(" - %s", js.sf(locale("Section:ShearPhase-" + type), value));
+		} else {
+			c.name += js.sf(" - %s", locale("Section:ShearPhase-" + type));
+		}
 		c.items.forEach(item => {
 			if(item.symbol && item.symbol.startsWith(".")) {
 				// item.symbol = js.sf("stages.SH.%s.%s", key, item.symbol.substring(1));
@@ -705,16 +671,43 @@ function setup_parameters(vars) {
 			}]
 			// ["maxDeviatorStress"],
 			// ["maxPrincipalStressRatio"],
-			// ["axialStrain2%"],
+			// ["axialStrainNN%"],
 		]),
 		category(("ShearPhase"), shearItems, adjustC("maxDeviatorStress", "max_q")),
 		category(("ShearPhase"), shearItems, adjustC("maxPrincipalStressRatio", "max_o_1o_3")),
-		category(("ShearPhase"), shearItems, adjustC("axialStrain2%", "usr_Ev"))
+		category(("ShearPhase"), shearItems, adjustC("axialStrainNN%", "usr_Ev", vars.Ev_usr || 2))
 	];
 	vars.parameters = vars.categories.map(_ => (_.items || []).map(kvp => js.mi({ category: _ }, kvp))).flat();
+	vars.refresh_mohr_coulomb_parameters = () => refresh_mohr_coulomb_parameters(vars);
+}
+function refresh_mohr_coulomb_parameters(vars) {
+	if(vars.categories && vars.categories.length === 11) {
+		const flavors = ["max_q", "max_o_1o_3", "usr_Ev"];
+
+		for(let i = 8; i < 11; ++i) {
+			flavors.forEach(key => {
+				vars.categories[i].items.forEach(item => {
+					if(item.symbol && item.symbol.startsWith(".")) {
+						item.value = js.get(js.sf("stages.SH.%s.%s", key, 
+							item.symbol.substring(1)), vars)
+					}
+				});
+			})
+		}
+		
+		vars.parameters
+			.filter(p => vars.categories.indexOf(p.category) >= 8)
+			.forEach(p => {
+				const flavor = flavors[vars.categories.indexOf(p.category) - 8];
+				if(p.symbol && p.symbol.startsWith(".")) {
+					p.value = js.get(js.sf("stages.SH.%s.%s", flavor, 
+						p.symbol.substring(1)), vars)
+				}
+			});
+	}
 }
 
-function getSampleMeasurements(comp, vars) {
+function getSampleMeasurements(comp, vars, dontRefresh) {
 	const refresh = (node) => { // HACKER-THE-HACK but seems to work nicely
 		node.setTimeout("refresh", () => {
 			const naam = node.vars("instance").getAttributeValue("naam");
@@ -738,13 +731,13 @@ function getSampleMeasurements(comp, vars) {
     	.filter(arr => arr);
 
     if(sampleMeasurements[0][0].txVC === undefined) {
-    	return refresh(nodes[0]);
+    	return !dontRefresh && refresh(nodes[0]);
     }
     if(sampleMeasurements[1][0].txVC === undefined) {
-    	return refresh(nodes[1]);
+    	return !dontRefresh && refresh(nodes[1]);
     }
     if(sampleMeasurements[2][0].txVC === undefined) {
-    	return refresh(nodes[2]);
+    	return !dontRefresh && refresh(nodes[2]);
     }
     
     return sampleMeasurements;
@@ -930,24 +923,33 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     var st = 0;
     vars.stages.length && render();
 }
-
 function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 /*-
 	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
 	- `seriesTitle` is a string that represents the title of the chart series.
 	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
 */
-	var sampleMeasurements = getSampleMeasurements(this, vars, true);
+	var sampleMeasurements = getSampleMeasurements(this, vars);
 	if(!sampleMeasurements) return;
 	
-	var stage = vars.stages.SH;
-	var measurements = [];
+	if(!this.vars(["variables.stages.SH.usr_Ev.mohr"])) {
+		setup_mohr_coulomb(vars, this);
+	}
 	
-	["max_q", "max_o_1o_3", "usr_Ev"].forEach(key => {
-		measurements.splice.apply(measurements, [measurements.length, 0].concat(stage[key].mc.serie));
+	const shss = [
+    	js.$[this.ud("#select-sample-1").getValue()], 
+    	js.$[this.ud("#select-sample-2").getValue()], 
+    	js.$[this.ud("#select-sample-3").getValue()]
+    ]
+    	.map(n => n.qs("devtools/Editor<gds>:root"))
+    	.map(r => r.vars(["variables.stages.SH"]))
+    	.filter(o => o);
+	
+	const measurements = shss.map(ss => ss.usr_Ev.mohr.serie).flat().sort((i1, i2) => {
+		return i1.x < i2.x ? -1 : i1.x === i2.x ? 0 : 1;
 	});
-
-    const series = measurements.map((mts, i) => ({
+	
+	const series = sampleMeasurements.map((mts, i) => ({
         title: js.sf(seriesTitle, "SH"),
         valueAxis: "y1",
         valueField: "mc_y" + i,
@@ -966,12 +968,10 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
         valueAxes: [{
             id: "y1",
             position: "left",
-            // reversed: reversed,
         }, {
             id: "x1",
             position: "bottom",
             title: js.sf(valueAxisTitle, "SH"),
-            // logarithmic: logarithmic,
             treatZeroAs: GDS.treatZeroAs
         }]
     });
@@ -1019,10 +1019,10 @@ const handlers = {
 	
 	"#bar-user-inputs onRender"() {
 		var vars = this.vars(["variables"]);
-		if(vars === undefined) return this.print("onRender-blocked - no vars");
+		if(vars === undefined) return;// this.print("onRender-blocked - no vars");
 		
 		var stages = this.vars("stages");
-		if(stages === vars.stages.length) return this.print("onRender-blocked - stages equals", vars);
+		if(stages === vars.stages.length) return;// this.print("onRender-blocked - stages equals", vars);
 		
 		this.vars("stages", vars.stages.length);
 		stages = vars.stages;
@@ -1060,7 +1060,7 @@ const handlers = {
 	    		var vars = this.vars(["variables"]);
 
 				if(vars && vars.stages) {	    		
-	    			this.print("cleared vars.stages -> refresh");
+	    			// this.print("cleared vars.stages -> refresh");
 		    		delete vars.stages.SA;
 		    		delete vars.stages.CO;
 		    		delete vars.stages.SH;
@@ -1194,9 +1194,7 @@ const handlers = {
 	
 	    renderMohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
-	    	locale("Graph:ShearStress.title.stage-F"), 
-	    	"mc_x", "mc_y", selected, false, false, true);
-	    	// "txDS", "txSS", selected, false, false);
+	    	locale("Graph:ShearStress.title.stage-F"));
 	},
 
 	"#graph_Taylor cursor-moved": GDS.TrendLine_cursorMoved,
@@ -1267,7 +1265,7 @@ const handlers = {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
 			const sacosh = {SA: n - 3, CO: n - 2, SH: n - 1};
 
-			["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max"]
+			["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
 				.forEach(key => {
 					vars[key] = parseFloat(this.ud("#input-" + key).getValue())
 				});
@@ -1279,7 +1277,7 @@ const handlers = {
 					vars.parameters = [];
 					vars.categories = [];
 					
-					this.print("cleared parameters & categories");
+					// this.print("cleared parameters & categories");
 
 					return false;
 				}
@@ -1291,7 +1289,7 @@ const handlers = {
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
 			setup_measurements(vars);
-			setup_stages_2(vars);
+			setup_mohr_coulomb(vars, this);
 			setup_parameters(vars);
 		}
 	}
@@ -1508,18 +1506,6 @@ const handlers = {
 	    		content: locale("EHSR-max") + ":",
 	    		// hint: locale("EHSR-max.hint")
 	    	}],
-	    	["vcl/ui/Input", ("input-txEHSR_min"), { 
-	    		value: locale("EHSR-min.default")
-	    		// hint: locale("EHSR-min.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: js.sf("(%H)", locale("EHSR-min.unit")),
-	    		// hint: locale("EHSR-min.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: locale("EHSR-min") + ":",
-	    		// hint: locale("EHSR-min.hint")
-	    	}],
 	    	["vcl/ui/Input", ("input-txEHSR_max"), { 
 	    		value: locale("EHSR-max.default")
 	    		// hint: locale("EHSR-max.hint")
@@ -1531,6 +1517,18 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-loadCarried") + ":",
 	    		// hint: locale("FilterPaper-loadCarried.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-txEHSR_min"), { 
+	    		value: locale("EHSR-min.default")
+	    		// hint: locale("EHSR-min.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("EHSR-min.unit")),
+	    		// hint: locale("EHSR-min.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: locale("EHSR-min") + ":",
+	    		// hint: locale("EHSR-min.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Kfp"), { 
 	    		value: locale("FilterPaper-loadCarried.default")
@@ -1608,6 +1606,17 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-beta.unit")),
 	    		// hint: locale("MembraneCorr-beta.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: locale("MohrCoulomb-Ev_usr") + ":",
+	    		// hint: locale("MohrCoulomb-Ev_usr.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-Ev_usr"), {
+				value: locale("MohrCoulomb-Ev_usr.default")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("MohrCoulomb-Ev_usr.unit")),
+	    		// hint: locale("MohrCoulomb-beta.hint")
 	    	}]
     	]]
     ]],
