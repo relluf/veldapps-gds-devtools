@@ -175,7 +175,7 @@ define((require) => ({
 
 				"-maxDeviatorStress":		{	'': "Maximale deviatorspanning" }, 
 				"-maxPrincipalStressRatio": {	'':	"Maximale hoofdspanningsverhouding", _: " (σ'1/σ'3)" },
-				"-axialStrain2%":			{	'': "Bij 2% axial rek" },
+				"-axialStrainNN%":			{	'': "Bij %s%% axial rek" },
 
 				"-axialStrain": 			{	'': "Axiale rek",					'.unit': "%",		'.symbol': ".Ev" },
 				"-deviatorStressCorrected": {	'': "Deviatorspanning (gecorr.)",	'.unit': "kPa",		'.symbol': ".q_corr" },
@@ -184,8 +184,10 @@ define((require) => ({
 				"-sigma1/3":				{	'': "σ'1/σ'3",						'.unit': "-",		'.symbol': ".o_1o_3" },
 				"-s_":						{	'': "s'",							'.unit': "kPa",		'.symbol': ".s_" },// 43.82 54.31 90.96
 				"-t":						{	'': "t",							'.unit': "kPa",		'.symbol': ".t" },// 45.18 44.16 67.55
-				"-phi_": 					{	'': "φ'",							'.unit': "degs",	'.symbol': ".phi_" },
-				"-c_":						{	'': "c'",							'.unit': "kPa",		'.symbol': ".c_" },
+				"-phi_": 					{	'': "φ'",							'.unit': "degs",	'.symbol': ".mohr.phi_" },
+				"-c_":						{	'': "c'",							'.unit': "kPa",		'.symbol': ".mohr.c_" },
+				"-a":						{	'': "a",							'.unit': "-",		'.symbol': ".mohr.a" },
+				"-b":						{	'': "b",							'.unit': "-",		'.symbol': ".mohr.b" },
 				"-e50und":					{	'': "E50.und",						'.unit': "MPa",		'.symbol': ".e50und"},
 
 				"-max_q":					{	'': "Mohr-Coulomb parameters bij maximale deviatorspanning" },
@@ -244,6 +246,11 @@ define((require) => ({
 			"-alpha.default":					"0.75",
 			"-beta.default":					"0.13",
 			
+		},
+		"MohrCoulomb": {
+			"-Ev_usr":							"Ev-user",
+			"-Ev_usr.unit":						"%",
+			"-Ev_usr.default":					"2"
 		},
 		"Sample": {
 			'':									"Monster"
