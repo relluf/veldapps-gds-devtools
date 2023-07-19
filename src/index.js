@@ -1,15 +1,8 @@
-var path = "vcl-comps/devtools/", components = [
-	"Editor$/gds.js",
-	"Renderer$/gds.js", 
-	"Renderer$/settlement.js", 
-	"Renderer$/triaxial.js",
-	"Renderer$/locales/prototype",
-	"Renderer$/locales/nl",
-	"../../Util",
-].map(s => s.endsWith(".js") ? "text!./" + path + s : "./" + path + s);
-
-define(components, (Editor, Renderer, settlement, triaxial, proto, nl, Util) => {
-
+define(["text!./vcl-comps/devtools/Editor$/gds.js", "text!./vcl-comps/devtools/Renderer$/gds.js", "text!./vcl-comps/devtools/Renderer$/settlement.js", "text!./vcl-comps/devtools/Renderer$/triaxial.js", "./vcl-comps/devtools/Renderer$/locales/prototype", "./vcl-comps/devtools/Renderer$/locales/nl", "./vcl-comps/devtools/../../Util"], 
+(Editor, Renderer, settlement, triaxial, proto, nl, Util) => {
+	
+	console.log("veldapps-gds-devtools");
+	
 	define("text!vcl-comps/devtools/Editor$/gds.js", Editor);
 	define("text!vcl-comps/devtools/Renderer$/gds.js", Renderer);
 	define("text!vcl-comps/devtools/Renderer$/settlement.js", settlement);
@@ -24,7 +17,12 @@ define(components, (Editor, Renderer, settlement, triaxial, proto, nl, Util) => 
 	require(["text!vcl-comps/devtools/Renderer$/settlement.js"]);
 	require(["text!vcl-comps/devtools/Renderer$/triaxial.js"]);
 	
-	return { v: "1.0.0" };
+	return { 
+		
+		'Editor<gds>': Editor,
+		'Renderer<gds>': Renderer,
+		'Renderer<settlement>': settlement,
+		'Renderer<triaxial>': triaxial,
+		
+		v: "1.0.0" };
 });
-
-// define([], { v: "1.0.0" });
