@@ -324,9 +324,9 @@ function setup_measurements(vars) {
 	 		mt.o3 = (() => { 
 	 			/*- Horizontal Stress (kPa):  the total horizontal stress on each data row is, essentially, the registered value of the cell pressure or chamber pressure MINUS the back pressure. In principle, this value should not change since it is the effective pressure at which consolidation took place (in absence of excess pore pressure at the end of consolidation, the horizontal stress and the effective horizontal stress are essentially the same). However, it is advisable to register and calculate the horizontal stress for each data row to look whether or not the pressures are maintained.  */
 				var cp = GDS.valueOf(mt, "Radial Pressure");
-				var bp = GDS.valueOf(mt, "Back Pressure")
+				var bp = GDS.valueOf(mt, "Back Pressure");
 
-				return cp - bp + mt.d_u;
+				return cp - bp + mt.d_u; // 20230717: mt.d_u added as seen in '2023-1 Tx.xls' 
 	 		})();
 	 		mt.o1 = (() => { 
 	 			/*- Vertical Stress (kPa): σ1 = σ3 + qs;corrected */
@@ -378,7 +378,7 @@ function setup_mohr_coulomb(vars, root) {
 	const stage = vars.stages.SH;
 	const max_q = GDS.maxOf(stage, "qs_c");
 	const max_o_1o_3 = GDS.maxOf(stage, "o_1o_3");
-	const usr_Ev = GDS.findEv(stage, vars.Ev_usr);
+	const usr_Ev = GDS.byEv(stage, vars.Ev_usr);
 
 	const values = (mt, maxOf) => ({
 		Ev: GDS.valueOf(mt, "Axial Strain"),
@@ -429,6 +429,7 @@ function setup_mohr_coulomb(vars, root) {
     	js.$[root.ud("#select-sample-2").getValue()], 
     	js.$[root.ud("#select-sample-3").getValue()]
     ]
+    	.filter(o => o)
     	.map(n => n.qs("devtools/Editor<gds>:root"))
     	.map(r => r.vars(["variables.stages.SH"]))
     	.filter(o => o);
@@ -961,6 +962,9 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
         data: measurements
     });
 
+    const mohr = shss[0].usr_Ev.mohr;
+    const ft_y = (x) => mohr.a * x + mohr.b;
+
     makeChart(this, {
         immediate: true,
         node: this.getNode(),
@@ -973,11 +977,15 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
             position: "bottom",
             title: js.sf(valueAxisTitle, "SH"),
             treatZeroAs: GDS.treatZeroAs
+        }],
+        trendLines: [{
+			initialXValue: 0, initialValue: ft_y(0),
+			finalXValue: 300, finalValue: ft_y(300),
+			lineColor: "teal", lineAlpha: 0.95,
+			lineThickness: 3, dashLength: 2
         }]
     });
 }
-
-const definedOr = (value, fallback) => typeof value === "undefined" ? fallback : value;
 
 /* Event Handlers */
 const handlers = {
