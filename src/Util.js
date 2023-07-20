@@ -132,8 +132,7 @@ define(["locale"], Util => {
 
 		return {a: slope, b: (sumY - slope * sumX) / n};
 	}
-	
-	
+
 	/* Trendline Editing */
 	const TrendLine_Mouse_Handlers = {
 		mousemove(graph, trendLine, evt) {
@@ -1459,7 +1458,7 @@ function calc_dH(vars, stage) {
 		indexOf: (stage, measurement) => stage.measurements.indexOf(measurement),
 		maxOf: (stage, name) => {
 			var max, r, mts = stage.measurements;
-			// if(name !== "B Value") mts = stage.measurements.slice(0, 400);
+			if(name !== "B Value") mts = stage.measurements.slice(0, 400);
 			mts.map(measurement => {
 				const value = Util.valueOf(measurement, name);
 				if(r === undefined || max < value) {
@@ -1469,7 +1468,7 @@ function calc_dH(vars, stage) {
 			});
 			return r;
 		},
-		findEv: (stage, threshold) => {
+		byEv: (stage, threshold) => {
 			var found = false;
 			for(let i = 0; i < stage.measurements.length && !found; ++i) {
 				const mt = stage.measurements[i];
