@@ -24,7 +24,7 @@ const Control = require("vcl/Control");
 /* Some styles and class */
 const css = {
 		"a": "visibility:hidden;",
-		">.single > div": "height: 100%;",
+		">:not(.multiple) > div": "height: 100%;",
 		">.multiple > div": "width:48%;height:48%;display:inline-block;" + 
 			"border: 1px dashed black;" +
 			"margin-left:1%;margin-right:1%;margin-top:5px;margin-bottom:5px;" + 
@@ -33,8 +33,8 @@ const css = {
 		"&.pdf > :not(.multiple)": "margin:5px;width: 850px; height: 470px; background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);",
 		"&.pdf.generate .multiple > div": "height: 470px; width:850px; position:absolute;top:0;left:0;",
 		"&.pdf .multiple > div.selected": "background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);",
+		"div.selected": "background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);",
 		"div.editing": "background-color: #f0f0f0; border: 3px dashed orange;top:0;left:0;right:0;bottom:0;z-index:1;position:absolute;width:auto;height:auto;margin:5px;",
-		"div.selected": "background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);"
 		// ".amcharts-main-div": "border: 3px solid transparent;"
 	};
 
