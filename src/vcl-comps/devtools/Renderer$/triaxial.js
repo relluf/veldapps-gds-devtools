@@ -1,4 +1,4 @@
-"use ./Util, locale!./locales/nl, vcl/ui/Button, vcl/ui/Tab, papaparse/papaparse, amcharts, amcharts.serial, amcharts.xy, lib/node_modules/regression/dist/regression, vcl/ui/Node-closeable";
+"use ./Util, locale!./locales/nl, vcl/ui/Button, vcl/ui/Tab, papaparse/papaparse, amcharts, amcharts.serial, amcharts.xy, lib/node_modules/regression/dist/regression, vcl/ui/Node-closeable, vcl/ui/Input, vcl/ui/Select";
 
 window.locale.loc = 'nl'; // TODO
 
@@ -11,6 +11,8 @@ const GDS = require("./Util");
 const Button = require("vcl/ui/Button");
 const Tab = require("vcl/ui/Tab");
 const Control = require("vcl/Control");
+const Input = require("vcl/ui/Input");
+const Select = require("vcl/ui/Select");
 
 /* Setup (must be called in same order) */
 function setup_taylor(vars) {
@@ -205,9 +207,12 @@ function setup_measurements(vars) {
 	const r = Math.sqrt(Ac / Math.PI);
 	const O = 2 * Math.PI * r;
 	
+	const back0 = stage => stage.back0 || (stage.back0 = GDS.valueOf(stage.measurements[0], "Back Volume"));
+	
 	vars.stages.forEach(stage => stage.measurements.map((mt, index, arr) => {
 		mt.ROS = GDS.rateOfStrain(arr, index);
-		mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
+		// mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
+		mt.txVC = GDS.valueOf(mt, "Back Volume") - back0(stage);
 		mt.txPWPR = GDS.valueOf(mt, "PWP Ratio");
 		mt.txDS = GDS.valueOf(mt, "Deviator Stress"); //qs_r
 		mt.txWO = GDS.valueOf(mt, "Pore Pressure") - GDS.valueOf(arr[0], "Pore Pressure");
@@ -434,7 +439,7 @@ function setup_mohr_coulomb(vars, root) {
     	.map(r => r.vars(["variables.stages.SH"]))
     	.filter(o => o);
     	
-    if(shss.length !== 3) return root.print("mohr canceled");
+    if(shss.length !== 3) return root.print("mohr canceled", root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
@@ -475,9 +480,14 @@ function setup_mohr_coulomb(vars, root) {
 			})();
 		}
 	});
-	refresh_mohr_coulomb_parameters(vars);
-	root.print("mohr params refreshed");
-	
+	if(vars.categories && vars.categories.length === 11) {
+		refresh_mohr_coulomb_parameters(vars);
+		root.print("mohr params refreshed", root.vars(["resource.uri"]));
+	} else {
+		root.print("mohr ready", root.vars(["resource.uri"]));
+		// this.app().toast({content: js.sf("%H ready", root.vars(["resource.uri"])), classes: "fade glassy"});
+	}
+	// root.app().toast({content: js.sf("%H klaar", root.vars(["resource.uri"])), classes: "fade glassy"});
 }
 function setup_parameters(vars) {
 	const hvis = (section, items) => items.map(item => {
@@ -747,8 +757,6 @@ function makeChart(c, opts) {
 	function render(options) {
 		var node = options.node || this.getNode();
 	
-		this.print(this.vars("am"));
-		
 		var defaults = {
 		    mouseWheelZoomEnabled: true, 
 		    mouseWheelScrollEnabled: false,
@@ -834,6 +842,8 @@ function makeChart(c, opts) {
 
 		this.vars("am.chart", chart);
 
+		this.print(this.vars("am"));
+		
 		chart.addListener("drawn", (e) => emit("rendered", [e, "drawn"]));
 		chart.addListener("dataUpdated", (e) => emit("rendered", [e, "dataUpdated"]));
 		chart.addListener("rendered", (e) => emit("rendered", [e]));
@@ -844,7 +854,7 @@ function makeChart(c, opts) {
 	}
 	opts.immediate ? render.apply(c, [opts || {}]) : c.nextTick(() => render.apply(c, [opts || {}]));
 }
-function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true) {
+function renderAllCharts(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true) {
 /*-
 	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
 	- `seriesTitle` is a string that represents the title of the chart series.
@@ -857,8 +867,8 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	var sampleMeasurements = getSampleMeasurements(this, vars);
 	if(!sampleMeasurements) return;
 
-    var content = [];
-    for (var st = 0; st < vars.stages.length; ++st) {
+    var content = [], render_stages = vars.stages.concat([]);
+    for (var st = 0; st < render_stages.length; ++st) {
         content.push(js.sf("<div>%s %s</div>", locale("Stage"), st));
     }
     this._node.innerHTML = content.join("");
@@ -877,12 +887,12 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     });
 
 	const all = Object.keys(index).map(key => index[key]);
-	const stageMeasurements = vars.stages.map(
+	const stageMeasurements = render_stages.map(
 		(st, i) => all.filter(
 				mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)));
 
     const render = () => {
-        const stage = vars.stages[st];
+        const stage = render_stages[st];
         const series = sampleMeasurements.map((mts, i) => ({
             title: js.sf(seriesTitle, st + 1),
             valueAxis: "y1",
@@ -913,16 +923,96 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
             }]
         });
 
-        if (++st < vars.stages.length) {
+        if (++st < render_stages.length) {
             this.nextTick(render);
         } else {
-            selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
+            // selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
             this.vars("rendering", false);
         }
     };
 
     var st = 0;
-    vars.stages.length && render();
+    render_stages.length && render();
+}
+function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true) {
+/*-
+	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
+	- `seriesTitle` is a string that represents the title of the chart series.
+	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
+	- `valueField` is a string that specifies the field used for the values in the chart.
+	- `categoryField` is a string that specifies the field used for the categories in the chart.
+	- `selected` is an array that contains the indices of the stages to be selected.
+	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
+*/
+	var sampleMeasurements = getSampleMeasurements(this, vars);
+	if(!sampleMeasurements) return;
+	
+    var content = ["<div><img src='/shared/vcl/images/loading.gif'></div>"];
+    var render_stages = [vars.stages[selected[0] - 1]];
+    this._node.innerHTML = content.join("");
+    this.vars("rendering", true);
+
+    const index = {};
+    sampleMeasurements.forEach((arr, i) => {
+    	return arr.forEach(mt_s => {
+    		let s = GDS.valueOf(mt_s, "Time since start of test");
+    		let mt_d = index[s] = index[s] || {};
+    		
+    		mt_d['mt_' + (i + 1)] = mt_s;
+    		mt_d[valueField + (i + 1)] = mt_s[valueField];
+    		mt_d[categoryField] = mt_s[categoryField];
+    	});
+    });
+
+	const all = Object.keys(index).map(key => index[key]);
+	const stageMeasurements = vars.stages.map((st, i) => all
+			.filter(mt => [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
+			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true))
+			.filter(mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)))
+			.splice(selected[0] - 1, 1);
+
+    const render = () => {
+        const stage = render_stages[st];
+        const series = sampleMeasurements.map((mts, i) => ({
+            title: js.sf(seriesTitle, st + 1),
+            valueAxis: "y1",
+            valueField: valueField + (i + 1),
+            categoryField: categoryField,
+        }));
+        this.vars("am", {
+            series: series,
+            stage: stage,
+            data: stageMeasurements[st]
+        });
+        this.vars("am-" + st, this.vars("am"));
+
+        makeChart(this, {
+            immediate: true,
+            node: this.getChildNode(st),
+            colors: ["rgb(56, 121, 217)", "red", "green"],
+            valueAxes: [{
+                id: "y1",
+                position: "left",
+                reversed: reversed,
+            }, {
+                id: "x1",
+                position: "bottom",
+                title: js.sf(valueAxisTitle, st + 1),
+                logarithmic: logarithmic,
+                treatZeroAs: GDS.treatZeroAs
+            }]
+        });
+
+        if (++st < render_stages.length) {
+            this.nextTick(render);
+        } else {
+            // selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
+            this.vars("rendering", false);
+        }
+    };
+
+    var st = 0;
+    render_stages.length && render();
 }
 function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 /*-
@@ -933,8 +1023,14 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 	var sampleMeasurements = getSampleMeasurements(this, vars);
 	if(!sampleMeasurements) return;
 	
-	if(!this.vars(["variables.stages.SH.usr_Ev.mohr"])) {
+	if(!js.get("stages.SH.usr_Ev.mohr.phi_", vars)) {
 		setup_mohr_coulomb(vars, this);
+	}
+
+	if((vars.parameters.filter(p => p.name === "φ'")[0] || {}).value === undefined) {
+		// this.print("phi_", js.get("stages.SH.usr_Ev.mohr.phi_", vars));
+		refresh_mohr_coulomb_parameters(vars);
+		this.print("mohr ready", this.vars(["resource.uri"]));
 	}
 	
 	const shss = [
@@ -989,10 +1085,7 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 
 /* Event Handlers */
 const handlers = {
-	"#tabs-sections onChange": function tabs_change(newTab, curTab) {
-		this.ud("#bar").setVisible(newTab && (newTab.vars("bar-hidden") !== true));
-	},
-	"#panel-edit-graph > vcl/ui/Input onChange": function() {
+	'#panel-edit-graph > vcl/ui/Input onChange': function() {
 		this.setTimeout("foo", () => {
 			var sg = getSelectedGraph(this); 
 			if(!sg.multiple) {
@@ -1016,7 +1109,7 @@ const handlers = {
 		this.nextTick(() => this.nodeNeeded());
 		this.nextTick(() => this.ud("#refresh").execute());
 	},
-	"#bar-user-inputs onNodeCreated"() {
+	'#bar-user-inputs onNodeCreated'() {
 		// this.print("onNodeCreated");
 
 		this.setParent(this.udr("#bar").getParent());
@@ -1025,7 +1118,7 @@ const handlers = {
 		this.ud("#refresh-select-samples").execute();
 	},
 	
-	"#bar-user-inputs onRender"() {
+	'#bar-user-inputs onRender'() {
 		var vars = this.vars(["variables"]);
 		if(vars === undefined) return;// this.print("onRender-blocked - no vars");
 		
@@ -1062,28 +1155,31 @@ const handlers = {
 			value: stages.indexOf(stages.SH)
 		});
 	},
-	"#bar-user-inputs onDispatchChildEvent"(component, name, evt, f, args) {
+	'#bar-user-inputs onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
 			this.setTimeout("refresh", () => {
 	    		var vars = this.vars(["variables"]);
 
 				if(vars && vars.stages) {	    		
-	    			// this.print("cleared vars.stages -> refresh");
 		    		delete vars.stages.SA;
 		    		delete vars.stages.CO;
 		    		delete vars.stages.SH;
 
 					this.ud("#refresh").execute();
 
-					["1", "2", "3"]
-						.map(i => this.ud("#select-sample-" + i))
-						.forEach((select, i) => {
-							var value = js.$[select.getValue()];
-							if(value && (value = value.vars("control").qs("#renderer"))) {
-								value = js.get("categories", value.vars(["variables"]));
-								js.set("overrides.sample" + i, value, vars);
-							}
-						});
+					// ["1", "2", "3"]
+					// 	.map(i => this.ud("#select-sample-" + i))
+					// 	.forEach((select, i) => {
+					// 		var value = js.$[select.getValue()];
+					// 		if(value && (value = value.vars("control").qs("#renderer"))) {
+					// 			value = js.get("categories", value.vars(["variables"]));
+					// 			js.set("overrides.sample" + i, value, vars);
+					// 		}
+					// 	});
+					
+					vars.overrides.inputs = Object.fromEntries(this.qsa("< *")
+						.filter(c => (c instanceof Input) || (c instanceof Select))
+						.map(c => [c._name, c.getValue()]));
 						
 					this.print("overrides", vars.overrides);
 				}
@@ -1091,58 +1187,7 @@ const handlers = {
 		}
 	},
 
-	"#graphs onDispatchChildEvent"(child, name, evt, f, args) {
-		var mouse = name.startsWith("mouse");
-		var click = !mouse && name.endsWith("click");
-		var vars = this.vars(["variables"]), am, stage, control, method, chart;
-
-		if(click || mouse) {
-			am = evt.target.up(".amcharts-main-div", true);
-			if(!am) return;
-
-			control = evt.component || require("vcl/Control").findByNode(am);
-			if(!control || control.vars("rendering") === true) return;
-			
-			var stages = vars.stages;
-			if(vars.editing) {
-				if(!vars.editing.parentNode) {
-					delete vars.editing;
-				} else {
-					stage = Array.from(vars.editing.parentNode.childNodes).indexOf(vars.editing);
-				}
-			}
-			if(name === "click") {
-				/* focus, clear overrides */
-				if(stage !== undefined) {
-					chart = (control.vars("am-" + stage) || control.vars("am")).chart;
-					var trendLines = chart.trendLines;
-					if(trendLines.selected) {
-						trendLines.selected.lineThickness = 1;
-						trendLines.selected.draw();
-						delete trendLines.selected;
-					}
-				}
-				this.focus();
-				
-				if(vars.editor) {
-					vars.editor.handle(evt);
-				}
-					
-			} else if(name === "dblclick") {
-				evt.am = am;
-				this.ud("#toggle-edit-graph").execute(evt);
-			} else if(vars.editor) {
-				vars.editor.handle(evt);
-			} else if(mouse && vars.editing) {
-				var trendLine = vars.etl && vars.etl.chart.trendLines.selected;
-				if(trendLine) {
-					handleTrendLineEvent(evt.component, trendLine, evt);
-				}
-			}
-		}
-	},
-
-	"#graph_VolumeChange onRender" () {
+	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.CO.i + 1];
 	
@@ -1151,16 +1196,16 @@ const handlers = {
 	    	locale("Graph:VolumeChange.title.stage-F"),
 	    	"txVC", "minutes_sqrt", selected);
 	},
-	"#graph_PorePressureDissipation onRender" () {
+	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SA.i + 1];
+	    var selected = [vars.stages.CO.i + 1];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
 	    	"txPWPR", "minutes", selected, true, false);
 	}, 
-	"#graph_DeviatorStress onRender"() {
+	'#graph_DeviatorStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.SH.i + 1];
 	
@@ -1169,7 +1214,7 @@ const handlers = {
 	    	locale("Graph:DeviatorStress.title.stage-F"), 
 	    	"txDS", "Axial Strain (%)", selected, false, false);
 	},
-	"#graph_WaterOverpressure onRender"() {
+	'#graph_WaterOverpressure onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.SH.i + 1];
 	
@@ -1178,7 +1223,7 @@ const handlers = {
 	    	locale("Graph:WaterOverpressure.title.stage-F"), 
 	    	"txWO", "Axial Strain (%)", selected, false, false);
 	},
-	"#graph_EffectiveHighStressRatio onRender"() {
+	'#graph_EffectiveHighStressRatio onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.SH.i + 1];
 	    
@@ -1187,7 +1232,7 @@ const handlers = {
 	    	locale("Graph:EffectiveHighStressRatio.title.stage-F"), 
 	    	"txEHSR_clipped", "Axial Strain (%)", selected, false, false);
 	},
-	"#graph_DeviatorStressQ onRender"() {
+	'#graph_DeviatorStressQ onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.SH.i + 1];
 	
@@ -1196,7 +1241,7 @@ const handlers = {
 	    	locale("Graph:DeviatorStressQ.title.stage-F"), 
 	    	"ds_q", "mes_p_", selected, false, false);
 	},
-	"#graph_ShearStress onRender"() {
+	'#graph_ShearStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = [vars.stages.SH.i + 1];
 	
@@ -1204,9 +1249,8 @@ const handlers = {
 	    	locale("Graph:ShearStress.title.stage-F"), 
 	    	locale("Graph:ShearStress.title.stage-F"));
 	},
-
 	"#graph_Taylor cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Taylor onRender"() {
+	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
 			var selected = [vars.stages.CO.i + 1];// || [4];
@@ -1278,7 +1322,6 @@ const handlers = {
 					vars[key] = parseFloat(this.ud("#input-" + key).getValue())
 				});
 				
-
 			if(!Object.keys(sacosh).every(k => {
 				if(isNaN(sacosh[k] = parseInt(this.ud("#select-stage-" + k).getValue(), 10))) {
 
@@ -1304,6 +1347,9 @@ const handlers = {
 }, [
     ["vcl/Action", ("refresh-select-samples"), {
     	on() { // TODO implement devtools/Workspace<>-environment as well :-p
+    	
+    		this.setEnabled(false);
+    	
     		let node = this.up("vcl/ui/Node-closeable");
 			let sel = this.up("vcl/ui/Node-closeable").up()
 					.qsa("vcl/ui/Node-closeable")
@@ -1314,7 +1360,14 @@ const handlers = {
 						o.d.getAttributeValue("naam") || "")
 						.toLowerCase().endsWith(".gds")
 					);
-
+					
+			let index = sel.findIndex((o, i, a) => o.n === node);
+			
+			if(index + 2 > sel.length - 1) {
+				index -= (index + 2) - (sel.length - 1);
+				if(index < 0) index = 0;
+			}
+					
 			for(let i = 1; i <= 3; ++i) {
 				let select = this._owner.qs("#select-sample-" + i);
 				select.setOptions(sel.map(o => ({ 
@@ -1322,10 +1375,12 @@ const handlers = {
 					content: o.d.getAttributeValue("naam"),
 					value: o.n.hashCode()
 				})));
-				if(sel.length >= i) {
-					select.setValue(sel[i - 1].n.hashCode());
+				if(sel.length >= i + index) {
+					select.setValue(sel[i - 1 + index].n.hashCode());
 				}
 			}
+			
+    		this.setTimeout("enable", () => this.setEnabled(true), 200);
     	}
     }],
 	["vcl/Action", ("report-generate"), {
@@ -1477,7 +1532,7 @@ const handlers = {
     	index: 0,
     	css: {
     		"": "border: 1px dashed silver; text-align: center;",
-    		"*:not(.{Group})": "display: inline-block; margin: 2px;",
+    		"*:not(.{Group}):not(.overflow_handler)": "display: inline-block; margin: 2px;",
     		".{Input}": "max-width: 50px;"
     	}
     }, [
@@ -1490,7 +1545,12 @@ const handlers = {
 	    	["vcl/ui/Select", ("select-sample-3"), { }],
 	    	["vcl/ui/Element", { 
 	    		action: "refresh-select-samples",
-	    		css: {'': "cursor:pointer", '&:hover': "background-color:#f0f0f0;" }, // todo which classes?
+	    		css: {
+	    			'': "cursor:pointer;padding:2px;border-radius:3px;", 
+	    			'&:hover': "background-color:#f0f0f0;",
+	    			'&:active': "color:red;",
+	    			'&:disabled': "color:silver;cursor:default;"
+	    		},
 	    		content: "<i class='fa fa-refresh'></i>" 
 	    	}]
 	    ]],
@@ -1511,6 +1571,18 @@ const handlers = {
 	    		options: locale("Consolidation-types.options")
 	    	}],
 	    	["vcl/ui/Element", { 
+	    		content: locale("EHSR-min") + ":",
+	    		// hint: locale("EHSR-min.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-txEHSR_min"), { 
+	    		value: locale("EHSR-min.default")
+	    		// hint: locale("EHSR-min.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("EHSR-min.unit")),
+	    		// hint: locale("EHSR-min.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
 	    		content: locale("EHSR-max") + ":",
 	    		// hint: locale("EHSR-max.hint")
 	    	}],
@@ -1525,18 +1597,6 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-loadCarried") + ":",
 	    		// hint: locale("FilterPaper-loadCarried.hint")
-	    	}],
-	    	["vcl/ui/Input", ("input-txEHSR_min"), { 
-	    		value: locale("EHSR-min.default")
-	    		// hint: locale("EHSR-min.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: js.sf("(%H)", locale("EHSR-min.unit")),
-	    		// hint: locale("EHSR-min.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: locale("EHSR-min") + ":",
-	    		// hint: locale("EHSR-min.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Kfp"), { 
 	    		value: locale("FilterPaper-loadCarried.default")
@@ -1638,10 +1698,11 @@ const handlers = {
 		["vcl/ui/Tab", { text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio" }],
 		["vcl/ui/Tab", { text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ" }],
 		["vcl/ui/Tab", { text: locale("Graph:ShearStress"), control: "graph_ShearStress" }],
-		["vcl/ui/Tab", { text: locale("Graph:Taylor"), control: "graph_Taylor" }],
+		["vcl/ui/Tab", { text: locale("Graph:Taylor"), control: "graph_Taylor", visible: false }],
 
 		["vcl/ui/Bar", ("menubar"), {
-			align: "right", autoSize: "both", classes: "nested-in-tabs"
+			align: "right", autoSize: "both", classes: "nested-in-tabs",
+			css: "display:none;"
 		}, [
 			["vcl/ui/Button", ("button-edit-graph"), { 
 				action: "toggle-edit-graph",
@@ -1657,34 +1718,35 @@ const handlers = {
 	[("#graphs"), { }, [
 		["vcl/ui/Panel", ("graph_VolumeChange"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_PorePressureDissipation"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_DeviatorStress"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_WaterOverpressure"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_EffectiveHighStressRatio"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_DeviatorStressQ"), {
 			align: "client", visible: false, 
-			classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_ShearStress"), {
 			align: "client", visible: false, 
-			// classes: "multiple"
+			classes: "single"
 		}],
 		["vcl/ui/Panel", ("graph_Taylor"), {
-			align: "client", visible: false, classes: "multiple"
+			align: "client", visible: false, 
+			classes: "multiple"
 		}],
 
 		[("#panel-edit-graph"), {}, [

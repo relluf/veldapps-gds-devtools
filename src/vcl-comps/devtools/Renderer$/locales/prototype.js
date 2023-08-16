@@ -52,7 +52,7 @@ define((require) => ({
 				".title.stage-F":				"Trap %s: wateroverspanning [kPa] / axiale rek [%%] →"
 			},
 			"EffectiveHighStressRatio": {
-				"":								"Effectieve hoogspannigsverhouding",
+				"":								"Effectieve hoogspanningsverhouding",
 				".title.stage-F":				"Trap %s: hoofdspanningsverhouding [-] / axiale rek [%%] →"
 			},
 			"DeviatorStressQ": {

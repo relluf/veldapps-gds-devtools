@@ -1832,6 +1832,12 @@ function isEditableTrendLine(tl) {
 			setup_koppejan(vars);
 			setup_stages_2(vars);
 			setup_parameters(vars, vars.headerValue);
+			
+	    	let adm = this.udr("#allow-disabling-measurements");
+	    	adm.vars("visible", false);
+	    	adm.toggle("visible");
+	    	adm.toggle("visible");
+			
 		}
 	}
 }, [

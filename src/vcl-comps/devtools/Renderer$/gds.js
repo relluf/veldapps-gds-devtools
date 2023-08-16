@@ -24,7 +24,8 @@ const Control = require("vcl/Control");
 /* Some styles and class */
 const css = {
 		"a": "visibility:hidden;",
-		".multiple > div": "width:48%;height:48%;display:inline-block;" + 
+		">.single > div": "height: 100%;",
+		">.multiple > div": "width:48%;height:48%;display:inline-block;" + 
 			"border: 1px dashed black;" +
 			"margin-left:1%;margin-right:1%;margin-top:5px;margin-bottom:5px;" + 
 			"min-width:300px;min-height:300px;",
@@ -159,9 +160,11 @@ var logger;
 			});
 			
 			this.ud("#graphs").getControls().forEach(c => c.setState("invalidated", true));
-			
+
+			var mts = js.get("overrides.measurements-disabled", vars) || [];
+			mts.forEach(index => vars.measurements[index].disabled = true);
+
 			this.print("parsed", { stages: vars.stages, variables: vars, measurements: vars.measurements });
-		
 		}
     }],
 
