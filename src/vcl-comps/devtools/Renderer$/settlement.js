@@ -2010,10 +2010,6 @@ function isEditableTrendLine(tl) {
 			]]
 		]]
     ]],
-    [("#refresh"), {
-		vars: {
-		}
-    }],
 
 	[("#tabs-graphs"), [
 		["vcl/ui/Tab", { text: "Casagrande", control: "graph_Casagrande", selected: true, vars: { multiple: true } }],

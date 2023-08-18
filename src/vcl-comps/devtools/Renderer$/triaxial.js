@@ -485,9 +485,7 @@ function setup_mohr_coulomb(vars, root) {
 		root.print("mohr params refreshed", root.vars(["resource.uri"]));
 	} else {
 		root.print("mohr ready", root.vars(["resource.uri"]));
-		// this.app().toast({content: js.sf("%H ready", root.vars(["resource.uri"])), classes: "fade glassy"});
 	}
-	// root.app().toast({content: js.sf("%H klaar", root.vars(["resource.uri"])), classes: "fade glassy"});
 }
 function setup_parameters(vars) {
 	const hvis = (section, items) => items.map(item => {
@@ -964,9 +962,10 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     	});
     });
 
+	const remove = this.ud("#input-removeInvalidMts").getValue();
 	const all = Object.keys(index).map(key => index[key]);
 	const stageMeasurements = vars.stages.map((st, i) => all
-			.filter(mt => [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
+			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
 			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true))
 			.filter(mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)))
 			.splice(selected[0] - 1, 1);
@@ -974,7 +973,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     const render = () => {
         const stage = render_stages[st];
         const series = sampleMeasurements.map((mts, i) => ({
-            title: js.sf(seriesTitle, st + 1),
+            title: js.sf(seriesTitle, selected[0]),
             valueAxis: "y1",
             valueField: valueField + (i + 1),
             categoryField: categoryField,
@@ -997,17 +996,20 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
             }, {
                 id: "x1",
                 position: "bottom",
-                title: js.sf(valueAxisTitle, st + 1),
+                title: js.sf(valueAxisTitle, selected[0]),
                 logarithmic: logarithmic,
                 treatZeroAs: GDS.treatZeroAs
             }]
         });
+        
+		this.getChildNode(st).qs("svg")._description = series[0].title;
 
         if (++st < render_stages.length) {
             this.nextTick(render);
         } else {
             // selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
-            this.vars("rendering", false);
+        	this.getChildNode(0).classList.add("print");
+        	this.vars("rendering", false);
         }
     };
 
@@ -1047,7 +1049,7 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 	});
 	
 	const series = sampleMeasurements.map((mts, i) => ({
-        title: js.sf(seriesTitle, "SH"),
+        title: js.sf(seriesTitle, vars.stages.SH.i + 1),
         valueAxis: "y1",
         valueField: "mc_y" + i,
         categoryField: "x"
@@ -1071,7 +1073,7 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
         }, {
             id: "x1",
             position: "bottom",
-            title: js.sf(valueAxisTitle, "SH"),
+            title: js.sf(valueAxisTitle, vars.stages.SH.i + 1),
             treatZeroAs: GDS.treatZeroAs
         }],
         trendLines: [{
@@ -1157,6 +1159,15 @@ const handlers = {
 	},
 	'#bar-user-inputs onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
+
+			if(!this.isEnabled()) {
+				this.print("ignored bar-user-inputs change");
+				return;
+			}
+
+			var modified = this.ud("#modified");
+			var blocked = modified.vars("blocked");
+			
 			this.setTimeout("refresh", () => {
 	    		var vars = this.vars(["variables"]);
 
@@ -1164,24 +1175,19 @@ const handlers = {
 		    		delete vars.stages.SA;
 		    		delete vars.stages.CO;
 		    		delete vars.stages.SH;
-
-					this.ud("#refresh").execute();
-
-					// ["1", "2", "3"]
-					// 	.map(i => this.ud("#select-sample-" + i))
-					// 	.forEach((select, i) => {
-					// 		var value = js.$[select.getValue()];
-					// 		if(value && (value = value.vars("control").qs("#renderer"))) {
-					// 			value = js.get("categories", value.vars(["variables"]));
-					// 			js.set("overrides.sample" + i, value, vars);
-					// 		}
-					// 	});
-					
-					vars.overrides.inputs = Object.fromEntries(this.qsa("< *")
+		    		
+		    		var inputs = Object.fromEntries(this.qsa("< *")
 						.filter(c => (c instanceof Input) || (c instanceof Select))
 						.map(c => [c._name, c.getValue()]));
 						
+		    		js.set("overrides.inputs", inputs, vars);
+
+					this.ud("#refresh").execute();
 					this.print("overrides", vars.overrides);
+					
+					if(!blocked) {
+						modified.setState(true);
+					}
 				}
 			}, 250);
 		}
@@ -1317,6 +1323,22 @@ const handlers = {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
 			const sacosh = {SA: n - 3, CO: n - 2, SH: n - 1};
 
+			var disabled = js.get("overrides.measurements-disabled", vars) || [];
+			disabled.forEach(index => vars.measurements[index].disabled = true);
+			
+			var inputs = js.get("overrides.inputs", vars);
+			var bar = this.ud("#bar-user-inputs");
+			bar.setEnabled(false);
+			for(var k in inputs) {
+				if(!k.startsWith("select-sample-")) {
+					var c = this.qs("#" + k);
+					if(c && c.setValue) {
+						c.setValue(inputs[k]);
+					}
+				}
+			}
+			bar.update(() => bar.setEnabled(true));
+
 			["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
 				.forEach(key => {
 					vars[key] = parseFloat(this.ud("#input-" + key).getValue())
@@ -1349,6 +1371,9 @@ const handlers = {
     	on() { // TODO implement devtools/Workspace<>-environment as well :-p
     	
     		this.setEnabled(false);
+
+			let modified = this.ud("#modified");
+			modified.vars("blocked", Date.now());
     	
     		let node = this.up("vcl/ui/Node-closeable");
 			let sel = this.up("vcl/ui/Node-closeable").up()
@@ -1380,7 +1405,10 @@ const handlers = {
 				}
 			}
 			
-    		this.setTimeout("enable", () => this.setEnabled(true), 200);
+    		this.setTimeout("enable", () => {
+    			modified.removeVar("blocked");
+    			this.setEnabled(true);
+    		}, 200);
     	}
     }],
 	["vcl/Action", ("report-generate"), {
@@ -1391,10 +1419,11 @@ const handlers = {
 					const naam = node.vars("instance").getAttributeValue("naam");
 					const tree = node.getTree();
 					const sel = tree.getSelection();
-					
+
 					this.setState("invalidated");
 					this.app().toast({content: js.sf("%s wordt geladen...", naam), classes: "glassy fade"})
 					tree.setSelection([node]);
+
 					tree.setTimeout("restore", () => {
 						this.execute(evt);
 						tree.setSelection(sel);
@@ -1420,7 +1449,7 @@ const handlers = {
 		    if(sampleMeasurements[2][0].txVC === undefined) {
 		    	return refresh(nodes[2]);
 		    }
-
+		    
 			const vars = this.vars(["variables"]);
 			["1", "2", "3"]
 				.map(i => this.ud("#select-sample-" + i))
@@ -1431,6 +1460,20 @@ const handlers = {
 						js.set("overrides.sample" + i, value, vars);
 					}
 				});
+
+			["0", "1", "2"].forEach(i => {
+				var s = js.get("overrides.sample" + i, vars);
+				[8, 9, 10].forEach(j => {
+					[7, 8, 9, 10].forEach(k => {
+						if(!s[j].items[k].value) {
+							s[j].items[k].value = 
+								vars.overrides.sample0[j].items[k].value ||
+								vars.overrides.sample1[j].items[k].value ||
+								vars.overrides.sample2[j].items[k].value;
+						}
+					})
+				})
+			});
 				
 			this.udr("#generate").execute(evt);
     	}
@@ -1518,13 +1561,15 @@ const handlers = {
     [("#reflect-overrides"), {
     	on(evt) {
     		var vars = this.vars(["variables"]);
+
     		if(evt.overrides) {
     			vars.overrides = evt.overrides;
     		} else {
     			if(!vars.overrides) return;
     			delete vars.overrides;
     		}
-			this.ud("#graphs").getControls().map(c => c.render)();
+
+			this.ud("#graphs").getControls().map(c => c.render());
     	}
     }],
     
@@ -1685,6 +1730,13 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MohrCoulomb-Ev_usr.unit")),
 	    		// hint: locale("MohrCoulomb-beta.hint")
+	    	}],
+	    	["vcl/ui/Checkbox", ("input-removeInvalidMts"), {
+	    		checked: true,
+	    		label: locale("Graphs-removeInvalidMeasurements"),
+	    		onChange() {
+	    			this.up().qsa("#graphs > *").map(g => g.setState("invalidated", g.isVisible()));
+	    		}
 	    	}]
     	]]
     ]],

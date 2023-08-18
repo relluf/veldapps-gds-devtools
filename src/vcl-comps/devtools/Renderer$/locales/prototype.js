@@ -23,7 +23,9 @@ define((require) => ({
 // Staat van het monster
 // Preparatiemethode
 
-		"Graph:": {
+		"Graphs-removeInvalidMeasurements": 	"Negeer ongeldige metingen",
+
+		"Graph:": { 
 			"Casagrande":						"Casagrande",
 			"Taylor":							"Taylor",
 			"Isotachen_c":						"Isotachen (c)",
@@ -65,7 +67,7 @@ define((require) => ({
 			},
 			"MohrCoulomb": {
 				"":								"Mohr-Coulomb",
-				".title.stage-F":				"Trap %s: schuifspanning [kN/m2] / effectieve spanning [kN/m2] →"
+				".title.stage-F":				"schuifspanning [kN/m2] / effectieve spanning [kN/m2] →"
 			}
 		},
 		"Section:": {

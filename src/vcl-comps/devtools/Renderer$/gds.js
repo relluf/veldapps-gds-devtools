@@ -160,10 +160,6 @@ var logger;
 			});
 			
 			this.ud("#graphs").getControls().forEach(c => c.setState("invalidated", true));
-
-			var mts = js.get("overrides.measurements-disabled", vars) || [];
-			mts.forEach(index => vars.measurements[index].disabled = true);
-
 			this.print("parsed", { stages: vars.stages, variables: vars, measurements: vars.measurements });
 		}
     }],
