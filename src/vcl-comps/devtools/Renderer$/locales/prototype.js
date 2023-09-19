@@ -219,14 +219,14 @@ define((require) => ({
 			"-loadCarried": {
 				"": "Kfp",
 				".hint": "Load (when fully mobilized) carried by filter paper covering a unit length of the specimen perimeter",
-				".unit": "kPa/mm",
-				".default": "0.5"
+				".unit": "kN/m",//"kPa/mm",
+				".default": "0.19"
 			},
 			"-perimeterCovered": {
 				"": "Pfp",
 				".hint": "Fraction of perimeter covered by the filter paper (up to 50%)",
 				".unit": "%",
-				".default": "0.5"
+				".default": "50"
 			}
 		},
 		"MembraneCorr": {

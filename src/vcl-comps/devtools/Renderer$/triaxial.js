@@ -239,12 +239,15 @@ function setup_measurements(vars) {
 				*/
 		
 				var E1 = GDS.valueOf(mt, "Axial Strain") / 100;
+				var Kfp = vars.Kfp, Pfp = vars.Pfp / 100;
+				var Ac_ = Ac / 1000000;
+				var O_ = O / 1000;
 
 		 		if(mt.Ev_s < 2) {
-		 			return E1 * vars.Kfp * vars.Pfp * O / (0.02 * Ac);
+		 			return E1 * Kfp * Pfp * O_ / (0.02 * Ac_);
 		 		}
 		 		
-		 		return E1 * vars.Kfp * vars.Pfp * O / Ac;
+		 		return Kfp * Pfp * O_ / Ac_;
 			})();
 			// Membrane Correction [CO, SH] – ISO/TS 17892-9 
 			mt.d_o1_m = (() => {
@@ -1200,7 +1203,7 @@ const handlers = {
 	    renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
-	    	"txVC", "minutes_sqrt", selected);
+	    	"txVC", "minutes_sqrt", selected, false, false);
 	},
 	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
