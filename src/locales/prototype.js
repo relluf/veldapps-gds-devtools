@@ -244,7 +244,7 @@ define((require) => ({
 
 			"-tm.default":						"0.35",
 			"-Em.default":						"1650",
-			"-Evk.default":						"0.03",
+			"-Evk.default":						"3",
 			"-alpha.default":					"0.75",
 			"-beta.default":					"0.13",
 			
