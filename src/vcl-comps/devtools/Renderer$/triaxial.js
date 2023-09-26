@@ -212,23 +212,18 @@ function setup_measurements(vars) {
 	vars.stages.forEach(stage => stage.measurements.map((mt, index, arr) => {
 		mt.ROS = GDS.rateOfStrain(arr, index);
 		// mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
-		mt.txVC = GDS.valueOf(mt, "Back Volume") - back0(stage);
+		mt.txVC = (GDS.valueOf(mt, "Back Volume") - back0(stage)) / 1000;
 		mt.txPWPR = GDS.valueOf(mt, "PWP Ratio");
 		mt.txDS = GDS.valueOf(mt, "Deviator Stress"); //qs_r
 		mt.txWO = GDS.valueOf(mt, "Pore Pressure") - GDS.valueOf(arr[0], "Pore Pressure");
-		mt.txEHSR = GDS.valueOf(mt, "Eff. Stress Ratio");
-		if(mt.txEHSR < (vars.txEHSR_max || 20) && mt.txEHSR >= (vars.txEHSR_min || 0)) {
-			mt.txEHSR_clipped = mt.txEHSR;
-		}
 		mt.txSS = GDS.valueOf(mt, "Eff. Cambridge p'");
 		mt.txSS_2 = GDS.valueOf(mt, "Mean Stress s/Eff. Axial Stress 2");
 		if(stage === vars.stages.SH) {
 	 		// mt.Ev_s = GDS.valueOf(mt, "Axial Displacement") / vars.stages.CO.Hf * 100;
-	 		mt.Ev_s = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hf);// * 100;
-
+	 		// mt.Ev_s = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hf);// * 100;
+	 		mt.Ev_s = GDS.valueOf(mt, "Axial Strain (%)") / 100;
 			// Filter Paper Correction
 			mt.d_o1_fp = (() => {
-			
 				/*-	(∆ σ1) fp = ε1 * Kfp * Pfp * O / (0.02 * Ac)
 					             
 					ε1: axial strain during shear phase (in decimal form) (if axial strain is in %, it must be divided by 100)
@@ -238,7 +233,7 @@ function setup_measurements(vars) {
 					O: circumference of the specimen at the end of the consolidation stage. Can be calculated from the specimen area at the end of consolidation stage. (mm)
 				*/
 		
-				var E1 = GDS.valueOf(mt, "Axial Strain") / 100;
+				var E1 = mt.Ev_s;
 				var Kfp = vars.Kfp, Pfp = vars.Pfp / 100;
 				var Ac_ = Ac / 1000000;
 				var O_ = O / 1000;
@@ -288,29 +283,44 @@ function setup_measurements(vars) {
 			// Membrane Correction [SH] – based on ASTM D4767-11/NEN 5117 and Greeuw et al.
 			mt.d_o1_m_alt = (() => {
 				/*-	(∆σ1)m = α*(4*t*E*εv;s / (D1 × 100))
+					(∆σ1)m = α*(4*t*E*εv;knikpunt) / (D1 × 100)
+							 +β(4*t*E*(εv;s − εv;knikpunt)) / (D1 × 100)
 					
-					α: correction factor (slope) for first segment of bilinear function (unitless)
-					β: correction factor (slope) for second segment of bilinear function (unitless)
-					εv;s: axial strain during shear phase, with respect to height of specimen at the
-					beginning of shear stage (in %)
-					εv;knikpunt: axial strain where breakpoint is defined, as a function of the calibration data
-					(in %).
-					(Δσ1)m: vertical stress correction due to membrane (kPa), applicable in the raw
-					deviator stress.
+					α: B7-correction factor (slope) for first segment of bilinear function (unitless)
+					β: B8-correction factor (slope) for second segment of bilinear function (unitless)
+					εv;s: H14-axial strain during shear phase, with respect to height of specimen at the beginning of shear stage (in %)
+					εv;knikpunt: B9-axial strain where breakpoint is defined, as a function of the calibration data (in %).
+					(Δσ1)m: vertical stress correction due to membrane (kPa), applicable in the raw deviator stress.
 					D1: initial diameter of the membrane (diameter before it is placed on specimen) (mm).
-					t: initial thickness of the membrane (mm)
-					E: elastic modulus for the membrane, measured in tension (kPa)
+					t: B5 - initial thickness of the membrane (mm)
+					E: B6 - elastic modulus for the membrane, measured in tension (kPa)
 				*/
 
-				var breakpoint = 2, a = vars.alpha, b = vars.beta, tm = vars.tm;
-				var E = vars.Em, D1 = vars.D;
-				var Ev_k = vars.Evk;
-				var Ev_s = mt.Ev_s;
+				var a = vars.alpha, b = vars.beta;
+				var Ev_s = mt.Ev_s, Ev_k = vars.Evk / 100;
+				var D1 = vars.D, t = vars.tm, E = vars.Em;
 				
-				return Ev_s < Ev_k ?
-					a * (4 * tm * E * Ev_s / (D1 * 100)) :
-					a * (4 * tm * E * Ev_s / (D1 * 100)) + b * (4 * tm * E * (Ev_s - Ev_k) / (D1 * 100));
+				return (Ev_s < Ev_k ?
+					 a * (4 * t * E * Ev_s / D1) :
+					(a * (4 * t * E * Ev_k / D1) + b * (4 * t * E * (Ev_s - Ev_k) / D1)));
 
+			})();
+			mt.d_o1_m_alt1 = (() => {
+				const a = vars.alpha, b = vars.beta;
+				const Ev_s = mt.Ev_s, Ev_k = vars.Evk / 100;
+				const t = vars.tm, E = vars.Em;
+				const Ac_ = Ac;
+
+				var commonDenominator = Math.sqrt(4 * Ac_ / Math.PI);
+			    if (Ev_s < Ev_k) {
+			        result = Ev_s * a * 4 * E * t / commonDenominator;
+			    } else {
+			        result = 
+			        	(Ev_k * a * 4 * E * t / commonDenominator) + 
+			        	((Ev_s - Ev_k) * b * 4 * E * t / commonDenominator);
+			    }
+
+			    return result;
 			})();
 
 	 		mt.qs_r = mt.txDS;
@@ -331,10 +341,14 @@ function setup_measurements(vars) {
 	 		})();
 	 		mt.o3 = (() => { 
 	 			/*- Horizontal Stress (kPa):  the total horizontal stress on each data row is, essentially, the registered value of the cell pressure or chamber pressure MINUS the back pressure. In principle, this value should not change since it is the effective pressure at which consolidation took place (in absence of excess pore pressure at the end of consolidation, the horizontal stress and the effective horizontal stress are essentially the same). However, it is advisable to register and calculate the horizontal stress for each data row to look whether or not the pressures are maintained.  */
-				var cp = GDS.valueOf(mt, "Radial Pressure");
-				var bp = GDS.valueOf(mt, "Back Pressure");
+				// var cp = GDS.valueOf(mt, "Radial Pressure");
+				// var bp = GDS.valueOf(mt, "Back Pressure");
 
-				return cp - bp + mt.d_u; // 20230717: mt.d_u added as seen in '2023-1 Tx.xls' 
+				// return cp - bp + mt.d_u; // 20230717: mt.d_u added as seen in '2023-1 Tx.xls' 
+				var s = GDS.valueOf(mt, "Mean Stress s/Eff. Axial Stress 2");
+				var t = GDS.valueOf(mt, "Max Shear Stress t");
+				
+				return s - t + mt.d_u;
 	 		})();
 	 		mt.o1 = (() => { 
 	 			/*- Vertical Stress (kPa): σ1 = σ3 + qs;corrected */
@@ -365,7 +379,7 @@ function setup_measurements(vars) {
 				two since it is acting around the specimen, while the effective 
 				vertical stress acts only along the axis of the specimen. */
 				
-				return (mt.o_1 + 2 * mt.o_3 ) / 3
+				return (mt.o_1 + 2 * mt.o_3 ) / 3;
 			})();
 			mt.ds_q = (() => {
 				/*- Deviator Stress (q) (kPa): q = σ′1 − σ′3 */
@@ -376,9 +390,13 @@ function setup_measurements(vars) {
 				return (mt.o_1 + mt.o_3) / 2;
 			})();
 			mt.ss_t = (() => {
-				/* Shear Stress (q) (kPa):  t = (σ′1 − σ′3) / 2 */
+				/* Shear Stress (t) (kPa):  t = (σ′1 − σ′3) / 2 */
 				return (mt.o_1 - mt.o_3) / 2;
 			})();
+			mt.txEHSR = mt.o_1o_3;//GDS.valueOf(mt, "Eff. Stress Ratio"); // o3
+			if(mt.txEHSR < (vars.txEHSR_max || 20) && mt.txEHSR >= (vars.txEHSR_min || 0)) {
+				mt.txEHSR_clipped = mt.txEHSR;
+			}
 		}
 	}));
 }
@@ -1090,23 +1108,9 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 
 /* Event Handlers */
 const handlers = {
-	'#panel-edit-graph > vcl/ui/Input onChange': function() {
-		this.setTimeout("foo", () => {
-			var sg = getSelectedGraph(this); 
-			if(!sg.multiple) {
-				var vars = this.vars(["variables"]), path = js.sf("overrides.%s.%s", sg.id, this._name);
-				var current = js.get(path, vars), value = this.getValue();
-				
-				if(current !== value) {
-					js.set(path, value, vars);
-					if(current !== undefined) {
-						this.ud("#modified").setState(true);
-					}	
-				} else {
-					this.print("ignore onChange");
-				}
-			}
-		}, 750);
+	'#panel-edit-graph > vcl/ui/Input onChange': function(evt) {
+		this.print("delegating to bar-user-inputs");
+		this.ud("#bar-user-inputs").fire("onDispatchChildEvent", [evt.sender, "change", evt, null, arguments])
 	},
 	
 	'#bar-user-inputs onLoad'() { 
@@ -1180,6 +1184,7 @@ const handlers = {
 		    		delete vars.stages.SH;
 		    		
 		    		var inputs = Object.fromEntries(this.qsa("< *")
+		    			.concat(this.ud("#panel-edit-graph").qsa("< * "))
 						.filter(c => (c instanceof Input) || (c instanceof Select))
 						.map(c => [c._name, c.getValue()]));
 						
@@ -1248,7 +1253,7 @@ const handlers = {
 	    renderChart.call(this, vars, 
 	    	locale("Graph:DeviatorStressQ.title.stage-F"), 
 	    	locale("Graph:DeviatorStressQ.title.stage-F"), 
-	    	"ds_q", "mes_p_", selected, false, false);
+	    	"qs_c", "mes_p_", selected, false, false);
 	},
 	'#graph_ShearStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
@@ -1360,7 +1365,7 @@ const handlers = {
 				return true;
 			})) return this.ud("#bar-user-inputs").render();
 			
-			sacosh.type = this.ud("#select-stage-CO-type").getValue();
+			sacosh.type = this.ud("#input-CO-type").getValue();
 			
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
@@ -1581,16 +1586,17 @@ const handlers = {
     	css: {
     		"": "border: 1px dashed silver; text-align: center;",
     		"*:not(.{Group}):not(.overflow_handler)": "display: inline-block; margin: 2px;",
-    		".{Input}": "max-width: 50px;"
+    		".{Input}:not(.{Checkbox})": "max-width: 40px; _font-weight:bold;",
+    		'.{Select}': "_font-weight:bold;"
     	}
     }, [
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
-	    	["vcl/ui/Select", ("select-sample-1"), { }],
+	    	["vcl/ui/Select", ("select-sample-1"), { css: "color: white; font-weight: bold; background-color: rgba(56,121,217,1);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 2:" }],
-	    	["vcl/ui/Select", ("select-sample-2"), { }],
+	    	["vcl/ui/Select", ("select-sample-2"), { css: "color: white; font-weight: bold; background-color: rgba(255,0,0,1);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 3:" }],
-	    	["vcl/ui/Select", ("select-sample-3"), { }],
+	    	["vcl/ui/Select", ("select-sample-3"), { css: "color: white; font-weight: bold; background-color: rgba(0,128,0,1);" }],
 	    	["vcl/ui/Element", { 
 	    		action: "refresh-select-samples",
 	    		css: {
@@ -1608,15 +1614,26 @@ const handlers = {
 	    	["vcl/ui/Element", { content: locale("Stage#CO") + ":" }],
 	    	["vcl/ui/Select", ("select-stage-CO"), { }],
 	    	["vcl/ui/Element", { content: locale("Stage#SH") + ":" }],
-	    	["vcl/ui/Select", ("select-stage-SH"), { }],
+	    	["vcl/ui/Select", ("select-stage-SH"), { }]
 	    ]],
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { 
 	    		content: locale("Consolidation-type") + ":",
 	    		// hint: locale("Consolidation-type")
 	    	}],
-	    	["vcl/ui/Select", ("select-stage-CO-type"), { 
+	    	["vcl/ui/Select", ("input-CO-type"), { 
 	    		options: locale("Consolidation-types.options")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: locale("MohrCoulomb-Ev_usr") + ":",
+	    		// hint: locale("MohrCoulomb-Ev_usr.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-Ev_usr"), {
+				value: locale("MohrCoulomb-Ev_usr.default")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("MohrCoulomb-Ev_usr.unit")),
+	    		// hint: locale("MohrCoulomb-beta.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("EHSR-min") + ":",
@@ -1642,6 +1659,15 @@ const handlers = {
 	    		content: js.sf("(%H)", locale("EHSR-max.unit")),
 	    		// hint: locale("EHSR-max.hint")
 	    	}],
+	    	["vcl/ui/Checkbox", ("input-removeInvalidMts"), {
+	    		checked: true,
+	    		label: locale("Graphs-removeInvalidMeasurements"),
+	    		onChange() {
+	    			this.up().qsa("#graphs > *").map(g => g.setState("invalidated", g.isVisible()));
+	    		}
+	    	}]
+	    ]],
+    	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-loadCarried") + ":",
 	    		// hint: locale("FilterPaper-loadCarried.hint")
@@ -1665,9 +1691,29 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("FilterPaper-perimeterCovered.unit")),
 	    		// hint: locale("FilterPaper-perimeterCovered.hint")
-	    	}]
-    	]],
-    	["vcl/ui/Group", { css: "display: block;" }, [
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: locale("MembraneCorr-alpha") + ":",
+	    		// hint: locale("MembraneCorr-alpha.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-alpha"), {
+				value: locale("MembraneCorr-alpha.default")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("MembraneCorr-alpha.unit")),
+	    		// hint: locale("MembraneCorr-alpha.hint")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: locale("MembraneCorr-beta") + ":",
+	    		// hint: locale("MembraneCorr-beta.hint")
+	    	}],
+	    	["vcl/ui/Input", ("input-beta"), {
+				value: locale("MembraneCorr-beta.default")
+	    	}],
+	    	["vcl/ui/Element", { 
+	    		content: js.sf("(%H)", locale("MembraneCorr-beta.unit")),
+	    		// hint: locale("MembraneCorr-beta.hint")
+	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-tm") + ":",
 	    		// hint: locale("MembraneCorr-tm.hint")
@@ -1700,51 +1746,15 @@ const handlers = {
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-Evk.unit")),
 	    		// hint: locale("MembraneCorr-Evk.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: locale("MembraneCorr-alpha") + ":",
-	    		// hint: locale("MembraneCorr-alpha.hint")
-	    	}],
-	    	["vcl/ui/Input", ("input-alpha"), {
-				value: locale("MembraneCorr-alpha.default")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: js.sf("(%H)", locale("MembraneCorr-alpha.unit")),
-	    		// hint: locale("MembraneCorr-alpha.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: locale("MembraneCorr-beta") + ":",
-	    		// hint: locale("MembraneCorr-beta.hint")
-	    	}],
-	    	["vcl/ui/Input", ("input-beta"), {
-				value: locale("MembraneCorr-beta.default")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: js.sf("(%H)", locale("MembraneCorr-beta.unit")),
-	    		// hint: locale("MembraneCorr-beta.hint")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: locale("MohrCoulomb-Ev_usr") + ":",
-	    		// hint: locale("MohrCoulomb-Ev_usr.hint")
-	    	}],
-	    	["vcl/ui/Input", ("input-Ev_usr"), {
-				value: locale("MohrCoulomb-Ev_usr.default")
-	    	}],
-	    	["vcl/ui/Element", { 
-	    		content: js.sf("(%H)", locale("MohrCoulomb-Ev_usr.unit")),
-	    		// hint: locale("MohrCoulomb-beta.hint")
-	    	}],
-	    	["vcl/ui/Checkbox", ("input-removeInvalidMts"), {
-	    		checked: true,
-	    		label: locale("Graphs-removeInvalidMeasurements"),
-	    		onChange() {
-	    			this.up().qsa("#graphs > *").map(g => g.setState("invalidated", g.isVisible()));
-	    		}
 	    	}]
     	]]
     ]],
 
-	[("#tabs-graphs"), {}, [
+	[("#tabs-graphs"), {
+		onChange(newTab, curTab) {
+			this.ud("#panel-edit-graph").setVisible(newTab.vars("panel-edit-graph-visible") === true)
+		}
+	}, [
 
 		["vcl/ui/Tab", { text: locale("Graph:VolumeChange"), control: "graph_VolumeChange" }],
 		["vcl/ui/Tab", { text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation" }],
@@ -1804,7 +1814,7 @@ const handlers = {
 			classes: "multiple"
 		}],
 
-		[("#panel-edit-graph"), {}, [
+		[("#panel-edit-graph"), { css: { '*': "display:inline-block;"} }, [
 		]]
 	]]
 ]];
