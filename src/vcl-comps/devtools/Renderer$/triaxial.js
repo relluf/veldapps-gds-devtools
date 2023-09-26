@@ -288,7 +288,7 @@ function setup_measurements(vars) {
 					
 					α: B7-correction factor (slope) for first segment of bilinear function (unitless)
 					β: B8-correction factor (slope) for second segment of bilinear function (unitless)
-					εv;s: H14-axial strain during shear phase, with respect to height of specimen at the beginning of shear stage (in %)
+					εv;s: H14-axial strain during shear phase, with respect to height of specimen at the beginning of shear stage (decimal form)
 					εv;knikpunt: B9-axial strain where breakpoint is defined, as a function of the calibration data (in %).
 					(Δσ1)m: vertical stress correction due to membrane (kPa), applicable in the raw deviator stress.
 					D1: initial diameter of the membrane (diameter before it is placed on specimen) (mm).
@@ -341,10 +341,12 @@ function setup_measurements(vars) {
 	 		})();
 	 		mt.o3 = (() => { 
 	 			/*- Horizontal Stress (kPa):  the total horizontal stress on each data row is, essentially, the registered value of the cell pressure or chamber pressure MINUS the back pressure. In principle, this value should not change since it is the effective pressure at which consolidation took place (in absence of excess pore pressure at the end of consolidation, the horizontal stress and the effective horizontal stress are essentially the same). However, it is advisable to register and calculate the horizontal stress for each data row to look whether or not the pressures are maintained.  */
+	 			
 				// var cp = GDS.valueOf(mt, "Radial Pressure");
 				// var bp = GDS.valueOf(mt, "Back Pressure");
+				// mt['o3_cp-bp'] = cp - bp; mt['o3_cp-bp+d_u'] = cp - bp + mt.d_u; return cp - bp + mt.d_u; // 20230717: mt.d_u added as seen in '2023-1 Tx.xls' 
 
-				// return cp - bp + mt.d_u; // 20230717: mt.d_u added as seen in '2023-1 Tx.xls' 
+				/* 20230924: [GDS-Reports_HB104-1 Tx_Rev 20.09.2023] suggest the following alternative: */
 				var s = GDS.valueOf(mt, "Mean Stress s/Eff. Axial Stress 2");
 				var t = GDS.valueOf(mt, "Max Shear Stress t");
 				
@@ -1592,11 +1594,11 @@ const handlers = {
     }, [
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
-	    	["vcl/ui/Select", ("select-sample-1"), { css: "color: white; font-weight: bold; background-color: rgba(56,121,217,1);" }],
+	    	["vcl/ui/Select", ("select-sample-1"), { css: "background-color: rgba(56,121,217,0.24);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 2:" }],
-	    	["vcl/ui/Select", ("select-sample-2"), { css: "color: white; font-weight: bold; background-color: rgba(255,0,0,1);" }],
+	    	["vcl/ui/Select", ("select-sample-2"), { css: "background-color: rgba(255,0,0,0.24);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 3:" }],
-	    	["vcl/ui/Select", ("select-sample-3"), { css: "color: white; font-weight: bold; background-color: rgba(0,128,0,1);" }],
+	    	["vcl/ui/Select", ("select-sample-3"), { css: "background-color: rgba(0,128,0,0.24);" }],
 	    	["vcl/ui/Element", { 
 	    		action: "refresh-select-samples",
 	    		css: {
