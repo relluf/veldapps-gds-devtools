@@ -215,7 +215,7 @@ const downloadCSV = (arr, filename) => {
 		onLoad() {
 			var gan = this.getAttributeNames;
 			//L/C Pressure (kPa),L/C Volume (mm�),Local Axial 1 (mm),Local Axial 2 (mm),Local Radial (mm),Base Pressure (kPa),Base Volume (mm�),Back Differential Pressure (kPa),Axial Displacement 2 (mm),Pore Air Pressure (kPa),Pore Air Volume (mm�),Atmospheric Pressure (kPa),Temperature (�C),Mid Plane PWP (kPa),Back to Cell Differential (kPa),Total Volume Change (mm�),Undefined Tx 1,Undefined Tx 2,Undefined Tx 3,Current Area (mm�),Lower Chamber Displacement (mm),Lower Chamber Axial Load (kN),Specimen Air Volume (mm�),Matric Suction (kPa),Voids ratio,Degree of Saturation (%),Specimen Water Volume (mm�),kRT constant ,
-			this.override("getAttributeNames", () => "Stage Number,Time since start of test (s),Time since start of stage (s),Radial Pressure (kPa),Radial Volume (mm�),Back Pressure (kPa),Back Volume (mm�),Load Cell (kN),Pore Pressure (kPa),Axial Displacement (mm),Axial Force (kN),Axial Strain (%),Av Diameter Change (mm),Radial Strain (%),Axial Stress (kPa),Eff. Axial Stress (kPa),Eff. Radial Stress (kPa),Deviator Stress (kPa),Total Stress Ratio (%),Eff. Stress Ratio (%),Shear Strain (%),Cambridge p (kPa),Eff. Cambridge p' (kPa),Max Shear Stress t (kPa),Volume Change ;(mm�),B Value,Mean Stress s/Eff. Axial Stress 2,Excess PWP (kPa),PWP Ratio,stage,seconds,minutes,hours,days,secondsT,daysT,z,minutes_sqrt,minutes_log10,days_log10,EvC,EvH,x,y_taylor,y,ROS,txVC,txPWPR,txDS,txWO,txEHSR,txEHSR_clipped,txSS,txSS_2".split(","));
+			//this.override("getAttributeNames", () => "Stage Number,Time since start of test (s),Time since start of stage (s),Radial Pressure (kPa),Radial Volume (mm�),Back Pressure (kPa),Back Volume (mm�),Load Cell (kN),Pore Pressure (kPa),Axial Displacement (mm),Axial Force (kN),Axial Strain (%),Av Diameter Change (mm),Radial Strain (%),Axial Stress (kPa),Eff. Axial Stress (kPa),Eff. Radial Stress (kPa),Deviator Stress (kPa),Total Stress Ratio (%),Eff. Stress Ratio (%),Shear Strain (%),Cambridge p (kPa),Eff. Cambridge p' (kPa),Max Shear Stress t (kPa),Volume Change ;(mm�),B Value,Mean Stress s/Eff. Axial Stress 2,Excess PWP (kPa),PWP Ratio,stage,seconds,minutes,hours,days,secondsT,daysT,z,minutes_sqrt,minutes_log10,days_log10,EvC,EvH,x,y_taylor,y,ROS,txVC,txPWPR,txDS,txWO,txEHSR,txEHSR_clipped,txSS,txSS_2".split(","));
 		},
 		onGetAttributeValue: function(name, index, value) { 
 			return (this._arr[index] || {})[name]; 
@@ -346,6 +346,7 @@ const downloadCSV = (arr, filename) => {
 		align: "client", autoColumns: true, visible: false, 
 		css: { ".row-disabled": "color: silver;", },
 		source: "array-measurements",
+		vars: { autoColumns: { capitalize: false, attributeInFront: false } },
 		onDblClick: function() {
 			this.print(this.getSelection(true));	
 		},
