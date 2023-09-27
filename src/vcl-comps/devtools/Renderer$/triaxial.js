@@ -981,7 +981,8 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     		
     		mt_d['mt_' + (i + 1)] = mt_s;
     		mt_d[valueField + (i + 1)] = mt_s[valueField];
-    		mt_d[categoryField] = mt_s[categoryField];
+    		// mt_d[categoryField] = mt_s[categoryField];
+    		mt_d[categoryField + (i + 1)] = mt_s[categoryField];
     	});
     });
 
@@ -999,7 +1000,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
             title: js.sf(seriesTitle, selected[0]),
             valueAxis: "y1",
             valueField: valueField + (i + 1),
-            categoryField: categoryField,
+            categoryField: categoryField + (i + 1),
         }));
         this.vars("am", {
             series: series,
