@@ -211,16 +211,15 @@ function setup_measurements(vars) {
 	
 	vars.stages.forEach(stage => stage.measurements.map((mt, index, arr) => {
 		mt.ROS = GDS.rateOfStrain(arr, index);
-		// mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
 		mt.txVC = (GDS.valueOf(mt, "Back Volume") - back0(stage)) / 1000;
+			// mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
 		mt.txPWPR = GDS.valueOf(mt, "PWP Ratio");
 		mt.txDS = GDS.valueOf(mt, "Deviator Stress"); //qs_r
 		mt.txWO = GDS.valueOf(mt, "Pore Pressure") - GDS.valueOf(arr[0], "Pore Pressure");
-		mt.txSS = GDS.valueOf(mt, "Eff. Cambridge p'");
-		mt.txSS_2 = GDS.valueOf(mt, "Mean Stress s/Eff. Axial Stress 2");
+			// mt.txSS = GDS.valueOf(mt, "Eff. Cambridge p'");
+			// mt.txSS_2 = GDS.valueOf(mt, "Mean Stress s/Eff. Axial Stress 2");
 		if(stage === vars.stages.SH) {
-	 		// mt.Ev_s = GDS.valueOf(mt, "Axial Displacement") / vars.stages.CO.Hf * 100;
-	 		// mt.Ev_s = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hf);// * 100;
+	 		mt.Ev_sc = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hi) / 50000;
 	 		mt.Ev_s = GDS.valueOf(mt, "Axial Strain (%)") / 100;
 			// Filter Paper Correction
 			mt.d_o1_fp = (() => {
@@ -395,7 +394,8 @@ function setup_measurements(vars) {
 				/* Shear Stress (t) (kPa):  t = (σ′1 − σ′3) / 2 */
 				return (mt.o_1 - mt.o_3) / 2;
 			})();
-			mt.txEHSR = mt.o_1o_3;//GDS.valueOf(mt, "Eff. Stress Ratio"); // o3
+
+			mt.txEHSR = mt.o_1o_3;
 			if(mt.txEHSR < (vars.txEHSR_max || 20) && mt.txEHSR >= (vars.txEHSR_min || 0)) {
 				mt.txEHSR_clipped = mt.txEHSR;
 			}
@@ -470,7 +470,7 @@ function setup_mohr_coulomb(vars, root) {
 		const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
 		const mohr = GDS.calc_slopeAndYIntercept(x, y);
 
-		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360
+		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
 		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
 		
 		for(var s = 0; s < 3; ++s) {
@@ -1085,7 +1085,10 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
     });
 
     const mohr = shss[0].usr_Ev.mohr;
-    const ft_y = (x) => mohr.a * x + mohr.b;
+
+    // Convert phi' from degrees to radians
+    // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
+	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
 
     makeChart(this, {
         immediate: true,
@@ -1101,8 +1104,8 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
             treatZeroAs: GDS.treatZeroAs
         }],
         trendLines: [{
-			initialXValue: 0, initialValue: ft_y(0),
-			finalXValue: 300, finalValue: ft_y(300),
+			initialXValue: 0, initialValue: t_(0),
+			finalXValue: 300, finalValue: t_(300),
 			lineColor: "teal", lineAlpha: 0.95,
 			lineThickness: 3, dashLength: 2
         }]
