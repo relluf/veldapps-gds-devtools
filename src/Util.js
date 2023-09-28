@@ -531,8 +531,8 @@ define(["locale"], Util => {
 		const mt_1 = arr[index - 1];
 		const en = valueOf(mt, "Axial Strain");
 		const en_1 = valueOf(mt_1, "Axial Strain");
-		const tn = valueOf(mt, "Time since start of test");
-		const tn_1 = valueOf(mt_1, "Time since start of test");
+		const tn = valueOf(mt, "Time since start of stage");
+		const tn_1 = valueOf(mt_1, "Time since start of stage");
 		
 		return (en - en_1) / ((tn - tn_1) / 3600);
 	};
@@ -1458,7 +1458,7 @@ function calc_dH(vars, stage) {
 		indexOf: (stage, measurement) => stage.measurements.indexOf(measurement),
 		maxOf: (stage, name) => {
 			var max, r, mts = stage.measurements;
-			if(name !== "B Value") mts = stage.measurements.slice(0, 400);
+			// if(name !== "B Value") mts = stage.measurements.slice(0, 400);
 			mts.map(measurement => {
 				const value = Util.valueOf(measurement, name);
 				if(r === undefined || max < value) {

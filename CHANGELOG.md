@@ -7,14 +7,14 @@
 
 Or at least codebase, because it won't be published to NPM.
 
-* [veldapps-gds-devtools](/Workspaces/veldapps.com/:/)``
+* [veldapps-gds-devtools](/Workspaces/veldapps.com/:/)
 
 # `2023/07/02` Tidying up, refactoring
 
 * Moved `setup_taylor` to `Util`, so it can be used by `triaxial` as well
 * The var `setup` can now be defined at the root level. Seems a nice approach in general, more concise.
 
-![RYwSYP](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/RYwSYP.png)``
+![RYwSYP](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/RYwSYP.png)
 
 # `2023/07/06` Refactoring from devtools
 
