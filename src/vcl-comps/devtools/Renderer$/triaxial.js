@@ -209,6 +209,9 @@ function setup_measurements(vars) {
 	
 	const back0 = stage => stage.back0 || (stage.back0 = GDS.valueOf(stage.measurements[0], "Back Volume"));
 	
+	const drainSidesUsed = vars.headerValue("Side Drains Used") === "y";
+	const membraneUsed = vars.headerValue("Membrane Thickness") !== undefined;
+
 	vars.stages.forEach(stage => stage.measurements.map((mt, index, arr) => {
 		mt.ROS = GDS.rateOfStrain(arr, index);
 		mt.txVC = (GDS.valueOf(mt, "Back Volume") - back0(stage)) / 1000;
@@ -222,7 +225,7 @@ function setup_measurements(vars) {
 	 		mt.Ev_sc = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hi) / 50000;
 	 		mt.Ev_s = GDS.valueOf(mt, "Axial Strain (%)") / 100;
 			// Filter Paper Correction
-			mt.d_o1_fp = (() => {
+			mt.d_o1_fp = (() => { 
 				/*-	(∆ σ1) fp = ε1 * Kfp * Pfp * O / (0.02 * Ac)
 					             
 					ε1: axial strain during shear phase (in decimal form) (if axial strain is in %, it must be divided by 100)
@@ -231,6 +234,7 @@ function setup_measurements(vars) {
 					Ac: specimen area at the end of the consolidation stage (mm2).
 					O: circumference of the specimen at the end of the consolidation stage. Can be calculated from the specimen area at the end of consolidation stage. (mm)
 				*/
+				if(!drainSidesUsed) return 0;
 		
 				var E1 = mt.Ev_s;
 				var Kfp = vars.Kfp, Pfp = vars.Pfp / 100;
@@ -299,7 +303,7 @@ function setup_measurements(vars) {
 				var Ev_s = mt.Ev_s, Ev_k = vars.Evk / 100;
 				var D1 = vars.D, t = vars.tm, E = vars.Em;
 				
-				return (Ev_s < Ev_k ?
+				return !membraneUsed ? 0 : (Ev_s < Ev_k ?
 					 a * (4 * t * E * Ev_s / D1) :
 					(a * (4 * t * E * Ev_k / D1) + b * (4 * t * E * (Ev_s - Ev_k) / D1)));
 
@@ -836,7 +840,7 @@ function makeChart(c, opts) {
 		options = js.mixIn(defaults, options);
 		options.graphs = options.graphs || this.vars("am.series").map(serie => {
 			return js.mixIn({
-	        	type: "line", lineThickness: 2,
+	        	type: "line", lineThickness: 3,
 		        connect: serie.connect || false,
 			    xField: serie.categoryField || "x", 
 			    yField: serie.valueField || "y",
@@ -930,7 +934,7 @@ function renderAllCharts(vars, seriesTitle, valueAxisTitle, valueField, category
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: ["rgb(56, 121, 217)", "red", "green"],
+            colors: ["rgb(56, 121, 217)", "red", "limegreen"],
             valueAxes: [{
                 id: "y1",
                 position: "left",
@@ -1012,7 +1016,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: ["rgb(56, 121, 217)", "red", "green"],
+            colors: ["rgb(56, 121, 217)", "red", "limegreen"],
             valueAxes: [{
                 id: "y1",
                 position: "left",
@@ -1089,14 +1093,15 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
     // Convert phi' from degrees to radians
     // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
-
+	
     makeChart(this, {
         immediate: true,
         node: this.getNode(),
-        colors: ["rgb(56, 121, 217)", "red", "green"],
+        colors: ["rgb(56, 121, 217)", "red", "limegreen"],
         valueAxes: [{
             id: "y1",
             position: "left",
+            maximum: t_(GDS.maxOf({measurements:measurements}, "x").x + 10)
         }, {
             id: "x1",
             position: "bottom",
@@ -1110,6 +1115,9 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 			lineThickness: 3, dashLength: 2
         }]
     });
+    
+	this.getNode().qs("svg")._description = series[0].title;
+    
 }
 
 /* Event Handlers */
@@ -1340,6 +1348,12 @@ const handlers = {
 			var disabled = js.get("overrides.measurements-disabled", vars) || [];
 			disabled.forEach(index => vars.measurements[index].disabled = true);
 			
+			const drainSidesUsed = vars.headerValue("Side Drains Used") === "y";
+			const membraneUsed = vars.headerValue("Membrane Thickness") !== undefined;
+
+			this.qsa(":vars(filterpaper)").set("visible", drainSidesUsed);
+			this.qsa(":vars(membrane)").set("visible", membraneUsed);
+
 			var inputs = js.get("overrides.inputs", vars);
 			var bar = this.ud("#bar-user-inputs");
 			bar.setEnabled(false);
@@ -1598,11 +1612,11 @@ const handlers = {
     }, [
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
-	    	["vcl/ui/Select", ("select-sample-1"), { css: "background-color: rgba(56,121,217,0.24);" }],
+	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(56,121,217); background-color: rgba(56,121,217,0.05);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 2:" }],
-	    	["vcl/ui/Select", ("select-sample-2"), { css: "background-color: rgba(255,0,0,0.24);" }],
+	    	["vcl/ui/Select", ("select-sample-2"), { css: "border-bottom: 3px solid rgb(255,0,0); background-color: rgba(255,0,0,0.05);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 3:" }],
-	    	["vcl/ui/Select", ("select-sample-3"), { css: "background-color: rgba(0,128,0,0.24);" }],
+	    	["vcl/ui/Select", ("select-sample-3"), { css: "border-bottom: 3px solid rgb(50,205,50); background-color: rgba(50,205,50,0.05);" }],
 	    	["vcl/ui/Element", { 
 	    		action: "refresh-select-samples",
 	    		css: {
@@ -1676,81 +1690,102 @@ const handlers = {
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-loadCarried") + ":",
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-loadCarried.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Kfp"), { 
-	    		value: locale("FilterPaper-loadCarried.default")
+	    		value: locale("FilterPaper-loadCarried.default"),
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-loadCarried.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("FilterPaper-loadCarried.unit")),
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-loadCarried.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-perimeterCovered") + ":",
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-perimeterCovered.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Pfp"), {
-	    		value: locale("FilterPaper-perimeterCovered.default")
+	    		value: locale("FilterPaper-perimeterCovered.default"),
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-perimeterCovered.hint")    		
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("FilterPaper-perimeterCovered.unit")),
+	    		vars: { filterpaper: 1 }
 	    		// hint: locale("FilterPaper-perimeterCovered.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-alpha") + ":",
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-alpha.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-alpha"), {
-				value: locale("MembraneCorr-alpha.default")
+				value: locale("MembraneCorr-alpha.default"),
+	    		vars: { membrane: 1 }
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-alpha.unit")),
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-alpha.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-beta") + ":",
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-beta.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-beta"), {
-				value: locale("MembraneCorr-beta.default")
+				value: locale("MembraneCorr-beta.default"),
+	    		vars: { membrane: 1 }
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-beta.unit")),
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-beta.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-tm") + ":",
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-tm.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-tm"), {
-	    		value: locale("MembraneCorr-tm.default")
+	    		value: locale("MembraneCorr-tm.default"),
+	    		vars: { membrane: 1 }
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-tm.unit")),
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-tm.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-Em") + ":",
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-Em.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Em"), {
-				value: locale("MembraneCorr-Em.default")
+				value: locale("MembraneCorr-Em.default"),
+	    		vars: { membrane: 1 }
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-Em.unit")),
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-Em.hint")
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: locale("MembraneCorr-Evk") + ":",
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-Evk.hint")
 	    	}],
 	    	["vcl/ui/Input", ("input-Evk"), {
-				value: locale("MembraneCorr-Evk.default")
+				value: locale("MembraneCorr-Evk.default"),
+	    		vars: { membrane: 1 }
 	    	}],
 	    	["vcl/ui/Element", { 
 	    		content: js.sf("(%H)", locale("MembraneCorr-Evk.unit")),
+	    		vars: { membrane: 1 }
 	    		// hint: locale("MembraneCorr-Evk.hint")
 	    	}]
     	]]
