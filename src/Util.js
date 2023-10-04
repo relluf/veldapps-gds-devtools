@@ -9,8 +9,11 @@ define(["locale"], Util => {
 	const key_T = "Time since start of test (s)";
 	const key_r = "Radial Pressue (kPa)";
 	const key_d = "Axial Displacement (mm)";
+	const key_d2 = "Axial Displacement (mm)";
 	const key_as = "Axial Stress (kPa)";
+	const key_aS = "Axial Strain (%)";
 	const key_st = "Stress Target (kPa)";
+	const key_vc = "Volume Change";
 	const treatZeroAs = 0.0001;
 
 	/* Math-like */
@@ -529,10 +532,10 @@ define(["locale"], Util => {
 		
 		const mt = arr[index];
 		const mt_1 = arr[index - 1];
-		const en = valueOf(mt, "Axial Strain");
-		const en_1 = valueOf(mt_1, "Axial Strain");
-		const tn = valueOf(mt, "Time since start of stage");
-		const tn_1 = valueOf(mt_1, "Time since start of stage");
+		const en = valueOf(mt, key_aS);
+		const en_1 = valueOf(mt_1, key_aS);
+		const tn = valueOf(mt, key_t);
+		const tn_1 = valueOf(mt_1, key_t);
 		
 		return (en - en_1) / ((tn - tn_1) / 3600);
 	};
@@ -623,7 +626,7 @@ function calc_dH(vars, stage) {
 	const setup_stages_1 = (vars) => {
 		var measurements = vars.measurements;
 		var length = measurements.length;
-		var n_stages = Math.floor((measurements[length - 1][Util.key_s] - 1) * 10);
+		var n_stages = Math.floor((measurements[length - 1][key_s] - 1) * 10);
 	
 		function e_(stage) {
 			/*-
@@ -680,11 +683,12 @@ function calc_dH(vars, stage) {
 			var ms = measurements.filter(_ => _.stage === st), _;
 			if(ms.length > 0) {
 				vars.stages.push({
+					number: ms[0][key_s],
 					measurements: ms, 
-					Hi: vars.H - ms[0][Util.key_d],
-					Hf: vars.H - ms[ms.length - 1][Util.key_d],
-					target: ms[ms.length - 1][Util.key_st],
-					effective: ms[ms.length - 1][Util.key_as]
+					Hi: vars.H - ms[0][key_d],
+					Hf: vars.H - ms[ms.length - 1][key_d],
+					target: ms[ms.length - 1][key_st],
+					effective: ms[ms.length - 1][key_as]
 				});
 			}
 		}
@@ -1062,15 +1066,12 @@ function calc_dH(vars, stage) {
 			var measurements = stage.measurements.slice(0);
 			var last = measurements[measurements.length - 1];
 			var calc_dH = (() => {
-				var r = true, v = Util.valueOf(measurements[0], "Axial Displacement 2");
+				var r = true, v = Util.valueOf(measurements[0], key_d2);
 				for(var i = 1; i < Math.min(10, measurements.length) && r; ++i) {
-					r = (v === Util.valueOf(measurements[i], "Axial Displacement 2"));
+					r = (v === Util.valueOf(measurements[i], key_d2));
 				}
 				return r;
 			})();
-			
-			// Util.valueOf(measurements[1], "Axial Displacement 2") === 0; // TODO
-			// var yZ = last.y;
 			
 			measurements.forEach(mt => { 
 				mt.x = mt.minutes_sqrt;
@@ -1085,7 +1086,7 @@ function calc_dH(vars, stage) {
 						- Vi is the initial volume of specimen;
 						- Hi is the initial height of specimen. 
 					*/
-					mt.y = mt.y_taylor = (Util.valueOf(mt, "Volume Change") * -1/1000 * vars.Vi * vars.Hi) / 3;
+					mt.y = mt.y_taylor = (Util.valueOf(mt, key_vc) * -1/1000 * vars.Vi * vars.Hi) / 3;
 				}
 			});
 			
@@ -1469,15 +1470,34 @@ function calc_dH(vars, stage) {
 			return r;
 		},
 		byEv: (stage, threshold) => {
-			var found = false;
-			for(let i = 0; i < stage.measurements.length && !found; ++i) {
+			for(let prev_mt, i = 0; i < stage.measurements.length; ++i) {
 				const mt = stage.measurements[i];
-				const v = Util.valueOf(mt, "Axial Strain");
+				const v = Util.valueOf(mt, key_aS);
 				if(v >= threshold) {
-					return mt;
+					const m_i = js.mixIn(mt);
+					if(prev_mt) {
+						const x1 = Util.valueOf(prev_mt, key_aS);
+						const x2 = Util.valueOf(mt, key_aS);
+						Object.keys(m_i).forEach(key => {
+							const y1 = Util.valueOf(prev_mt, key);
+							const y2 = Util.valueOf(mt, key);
+							const dx = x2 - x1, dy = y2 - y1;
+							if(typeof dx === "number") {
+		                        m_i[key] = y1 + (threshold - x1) * (dy / dx);
+							}
+						})
+					}
+
+					return m_i;
 				}
+				prev_mt = mt;
 			}
+		},
+		
+		indexOfStage: (stages, stageN) => {
+			return stages.findIndex(stage => Util.valueOf(stage.measurements[0], key_s) === stageN);
 		}
+
 	});
 
 });

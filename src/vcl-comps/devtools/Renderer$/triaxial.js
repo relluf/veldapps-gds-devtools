@@ -783,7 +783,14 @@ function makeChart(c, opts) {
 		var node = options.node || this.getNode();
 	
 		var defaults = {
-		    mouseWheelZoomEnabled: true, 
+
+			autoMargins: !c.ud("#graphs").hasClass("generate"),
+			marginLeft: 75,
+			marginRight: 55,
+			marginTop: 10,
+			marginBottom: 30,
+  
+			mouseWheelZoomEnabled: true, 
 		    mouseWheelScrollEnabled: false,
 		    zoomOutText: " ", 
 		    // chartScrollbar: {
@@ -824,7 +831,7 @@ function makeChart(c, opts) {
 			numberFormatter: { decimalSeparator: ",", thousandsSeparator: "" },
 			
 		    type: "xy",  
-		    colors: ["rgb(56, 121, 217)", "black"],
+		    colors: ["rgb(0,0,0)", "black"],
 		    // legend: { useGraphSettings: true },
 			dataProvider: this.vars("am.data"),
 			// minValue: 1, maxValue: 0,
@@ -879,87 +886,7 @@ function makeChart(c, opts) {
 	}
 	opts.immediate ? render.apply(c, [opts || {}]) : c.nextTick(() => render.apply(c, [opts || {}]));
 }
-function renderAllCharts(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true) {
-/*-
-	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
-	- `seriesTitle` is a string that represents the title of the chart series.
-	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
-	- `valueField` is a string that specifies the field used for the values in the chart.
-	- `categoryField` is a string that specifies the field used for the categories in the chart.
-	- `selected` is an array that contains the indices of the stages to be selected.
-	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
-*/
-	var sampleMeasurements = getSampleMeasurements(this, vars);
-	if(!sampleMeasurements) return;
-
-    var content = [], render_stages = vars.stages.concat([]);
-    for (var st = 0; st < render_stages.length; ++st) {
-        content.push(js.sf("<div>%s %s</div>", locale("Stage"), st));
-    }
-    this._node.innerHTML = content.join("");
-    this.vars("rendering", true);
-
-    const index = {};
-    sampleMeasurements.forEach((arr, i) => {
-    	return arr.forEach(mt_s => {
-    		let s = GDS.valueOf(mt_s, "Time since start of test");
-    		let mt_d = index[s] = index[s] || {};
-    		
-    		mt_d['mt_' + (i + 1)] = mt_s;
-    		mt_d[valueField + (i + 1)] = mt_s[valueField];
-    		mt_d[categoryField] = mt_s[categoryField];
-    	});
-    });
-
-	const all = Object.keys(index).map(key => index[key]);
-	const stageMeasurements = render_stages.map(
-		(st, i) => all.filter(
-				mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)));
-
-    const render = () => {
-        const stage = render_stages[st];
-        const series = sampleMeasurements.map((mts, i) => ({
-            title: js.sf(seriesTitle, st + 1),
-            valueAxis: "y1",
-            valueField: valueField + (i + 1),
-            categoryField: categoryField,
-        }));
-        this.vars("am", {
-            series: series,
-            stage: stage,
-            data: stageMeasurements[st]
-        });
-        this.vars("am-" + st, this.vars("am"));
-
-        makeChart(this, {
-            immediate: true,
-            node: this.getChildNode(st),
-            colors: ["rgb(56, 121, 217)", "red", "limegreen"],
-            valueAxes: [{
-                id: "y1",
-                position: "left",
-                reversed: reversed,
-            }, {
-                id: "x1",
-                position: "bottom",
-                title: js.sf(valueAxisTitle, st + 1),
-                logarithmic: logarithmic,
-                treatZeroAs: GDS.treatZeroAs
-            }]
-        });
-
-        if (++st < render_stages.length) {
-            this.nextTick(render);
-        } else {
-            // selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
-            this.vars("rendering", false);
-        }
-    };
-
-    var st = 0;
-    render_stages.length && render();
-}
-function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true) {
+function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true, time_key = GDS.key_t) {
 /*-
 	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
 	- `seriesTitle` is a string that represents the title of the chart series.
@@ -972,15 +899,17 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	var sampleMeasurements = getSampleMeasurements(this, vars);
 	if(!sampleMeasurements) return;
 	
+	selected = selected.map(s => s - 1);
+	
     var content = ["<div><img src='/shared/vcl/images/loading.gif'></div>"];
-    var render_stages = [vars.stages[selected[0] - 1]];
+    var render_stages = [vars.stages[selected[0]]];// - 1]];
     this._node.innerHTML = content.join("");
     this.vars("rendering", true);
 
     const index = {};
     sampleMeasurements.forEach((arr, i) => {
     	return arr.forEach(mt_s => {
-    		let s = GDS.valueOf(mt_s, "Time since start of test");
+    		let s = GDS.valueOf(mt_s, time_key);
     		let mt_d = index[s] = index[s] || {};
     		
     		mt_d['mt_' + (i + 1)] = mt_s;
@@ -995,8 +924,9 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	const stageMeasurements = vars.stages.map((st, i) => all
 			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
 			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true))
-			.filter(mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)))
-			.splice(selected[0] - 1, 1);
+			// .filter(mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)))
+			.filter(mt => js.get("mt_1.Stage Number", mt) == st.number))
+			.splice(selected[0], 1);// - 1, 1);
 
     const render = () => {
         const stage = render_stages[st];
@@ -1016,7 +946,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: ["rgb(56, 121, 217)", "red", "limegreen"],
+            colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
             valueAxes: [{
                 id: "y1",
                 position: "left",
@@ -1097,7 +1027,7 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
     makeChart(this, {
         immediate: true,
         node: this.getNode(),
-        colors: ["rgb(56, 121, 217)", "red", "limegreen"],
+        colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
         valueAxes: [{
             id: "y1",
             position: "left",
@@ -1162,7 +1092,7 @@ const handlers = {
 		}
 
 		var options = stages.map((s, i, a) => ({
-			content: js.sf("%s %d", locale("Stage"), i + 1),
+			content: js.sf("%s %d", locale("Stage"), s.number),
 			value: i
 		}));
 		this.ud("#select-stage-SA").set({ 
@@ -1217,25 +1147,25 @@ const handlers = {
 
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.CO.i + 1];
+	    var selected = [vars.stages.CO.number];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
-	    	"txVC", "minutes_sqrt", selected, false, false);
+	    	"txVC", "minutes_sqrt", selected, false, false, GDS.key_T);
 	},
 	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.CO.i + 1];
+	    var selected = [vars.stages.CO.number];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
-	    	"txPWPR", "minutes", selected, true, false);
+	    	"txPWPR", "minutes", selected, true, false, GDS.key_T);
 	}, 
 	'#graph_DeviatorStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SH.i + 1];
+	    var selected = [vars.stages.SH.number];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:DeviatorStress.title.stage-F"), 
@@ -1244,7 +1174,7 @@ const handlers = {
 	},
 	'#graph_WaterOverpressure onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SH.i + 1];
+	    var selected = [vars.stages.SH.number];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:WaterOverpressure.title.stage-F"), 
@@ -1253,7 +1183,7 @@ const handlers = {
 	},
 	'#graph_EffectiveHighStressRatio onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SH.i + 1];
+	    var selected = [vars.stages.SH.number];
 	    
 	    renderChart.call(this, vars, 
 	    	locale("Graph:EffectiveHighStressRatio.title.stage-F"), 
@@ -1262,7 +1192,7 @@ const handlers = {
 	},
 	'#graph_DeviatorStressQ onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SH.i + 1];
+	    var selected = [vars.stages.SH.number];
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:DeviatorStressQ.title.stage-F"), 
@@ -1271,7 +1201,7 @@ const handlers = {
 	},
 	'#graph_ShearStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = [vars.stages.SH.i + 1];
+	    var selected = [vars.stages.SH.number];
 	
 	    renderMohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
@@ -1281,7 +1211,7 @@ const handlers = {
 	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
-			var selected = [vars.stages.CO.i + 1];// || [4];
+			var selected = [vars.stages.CO.number];// || [4];
 	
 			/*- reset */
 			var content = [], st;
@@ -1612,11 +1542,11 @@ const handlers = {
     }, [
     	["vcl/ui/Group", { css: "display: block;" }, [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
-	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(56,121,217); background-color: rgba(56,121,217,0.05);" }],
+	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(0,0,0); background-color: rgba(0,0,0,0.05);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 2:" }],
-	    	["vcl/ui/Select", ("select-sample-2"), { css: "border-bottom: 3px solid rgb(255,0,0); background-color: rgba(255,0,0,0.05);" }],
+	    	["vcl/ui/Select", ("select-sample-2"), { css: "border-bottom: 3px solid rgb(255,0,0); background-color: rgba(255,0,0 ,0.05);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 3:" }],
-	    	["vcl/ui/Select", ("select-sample-3"), { css: "border-bottom: 3px solid rgb(50,205,50); background-color: rgba(50,205,50,0.05);" }],
+	    	["vcl/ui/Select", ("select-sample-3"), { css: "border-bottom: 3px solid rgb(112,173,71); background-color: rgba(112,173,71,0.05);" }],
 	    	["vcl/ui/Element", { 
 	    		action: "refresh-select-samples",
 	    		css: {
