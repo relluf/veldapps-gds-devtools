@@ -893,7 +893,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
 	- `valueField` is a string that specifies the field used for the values in the chart.
 	- `categoryField` is a string that specifies the field used for the categories in the chart.
-	- `selected` is an array that contains the indices of the stages to be selected.
+	- `selected` (string) indicates which stage is selected (SA, CO or SH)
 	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
 */
 	var sampleMeasurements_ = getSampleMeasurements(this, vars);
@@ -904,13 +904,11 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     	js.$[this.ud("#select-sample-2").getValue()], 
     	js.$[this.ud("#select-sample-3").getValue()]
     ]
-    	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected[0]))
+    	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected))
     	.map(stage => stage.measurements);
 
-//	selected = selected.map(s => GDS.indexOfStage(vars.stages, s));// - 1);
-	
     var content = ["<div><img src='/shared/vcl/images/loading.gif'></div>"];
-    var render_stages = [vars.stages[selected[0]]];// - 1]];
+    var render_stages = [vars.stages[selected]];
     this._node.innerHTML = content.join("");
     this.vars("rendering", true);
 
@@ -927,19 +925,16 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     	});
     });
 
-	const remove = false; //this.ud("#input-removeInvalidMts").getValue();
+	const remove = false; //this.ud("#input-removeInvalidMts").getValue(); disabled for now
 	const all = Object.keys(index).map(key => index[key]);
 	const stageMeasurements = vars.stages.map((st, i) => all
 			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
 			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
-			// .filter(mt => js.get(js.sf("mt_1.Stage Number"), mt) == (i + 1)))
-			// .filter(mt => js.get("mt_" + i + ".Stage Number", mt) == GDS.valueOf(sampleMeasurements[i][0], GDS.key_s)));
-			// .splice(selected[0], 1);// - 1, 1);
 
     const render = () => {
         const stage = render_stages[st];
         const series = sampleMeasurements.map((mts, i) => ({
-            title: js.sf(seriesTitle, selected[0]),
+            title: js.sf(seriesTitle, selected),
             valueAxis: "y1",
             valueField: valueField + (i + 1),
             categoryField: categoryField + (i + 1),
@@ -962,7 +957,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
             }, {
                 id: "x1",
                 position: "bottom",
-                title: js.sf(valueAxisTitle, selected[0]),
+                title: js.sf(valueAxisTitle, selected),
                 logarithmic: logarithmic,
                 treatZeroAs: GDS.treatZeroAs
             }]
@@ -973,7 +968,6 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         if (++st < render_stages.length) {
             this.nextTick(render);
         } else {
-            // selected.forEach(selected => this.getChildNode(selected - 1).classList.add("selected"));
         	this.getChildNode(0).classList.add("print");
         	this.vars("rendering", false);
         }
@@ -1155,7 +1149,7 @@ const handlers = {
 
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["CO"];
+	    var selected = "CO";
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
@@ -1164,7 +1158,7 @@ const handlers = {
 	},
 	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["CO"];
+	    var selected = "CO";
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
@@ -1173,7 +1167,7 @@ const handlers = {
 	}, 
 	'#graph_DeviatorStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["SH"];
+	    var selected = "SH";
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:DeviatorStress.title.stage-F"), 
@@ -1182,7 +1176,7 @@ const handlers = {
 	},
 	'#graph_WaterOverpressure onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["SH"];
+	    var selected = "SH";
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:WaterOverpressure.title.stage-F"), 
@@ -1191,7 +1185,7 @@ const handlers = {
 	},
 	'#graph_EffectiveHighStressRatio onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["SH"];
+	    var selected = "SH";
 	    
 	    renderChart.call(this, vars, 
 	    	locale("Graph:EffectiveHighStressRatio.title.stage-F"), 
@@ -1200,7 +1194,7 @@ const handlers = {
 	},
 	'#graph_DeviatorStressQ onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["SH"];
+	    var selected = "SH";
 	
 	    renderChart.call(this, vars, 
 	    	locale("Graph:DeviatorStressQ.title.stage-F"), 
@@ -1209,7 +1203,7 @@ const handlers = {
 	},
 	'#graph_ShearStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
-	    var selected = ["SH"];
+	    var selected = "SH";
 	
 	    renderMohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
@@ -1219,7 +1213,7 @@ const handlers = {
 	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
-			var selected = ["CO"];// || [4];
+			var selected = [4];
 	
 			/*- reset */
 			var content = [], st;
