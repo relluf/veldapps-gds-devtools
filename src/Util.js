@@ -1470,7 +1470,8 @@ function calc_dH(vars, stage) {
 			return r;
 		},
 		byEv: (stage, threshold) => {
-			for(let prev_mt, i = 0; i < stage.measurements.length; ++i) {
+			let prev_mt;
+			for(let i = 0; i < stage.measurements.length; ++i) {
 				const mt = stage.measurements[i];
 				const v = Util.valueOf(mt, key_aS);
 				if(v >= threshold) {
@@ -1487,11 +1488,12 @@ function calc_dH(vars, stage) {
 							}
 						})
 					}
-
 					return m_i;
 				}
 				prev_mt = mt;
 			}
+			console.warn("threshold not reached, return last known value", Util.valueOf(prev_mt, key_aS), prev_mt);
+			return prev_mt;
 		},
 		
 		indexOfStage: (stages, stageN) => {

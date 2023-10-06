@@ -1146,7 +1146,7 @@ function setup_parameters(vars, headerValue) {
 			{ name: "Aantal trappen", value: vars.stages.length },
 			{ name: "Proef periode", value: js.sf("%s - %s", headerValue("Date Test Started", false), headerValue("Date Test Finished", false)) },
 			{ name: "Beproevingstemperatuur", value: headerValue("Sample Date") || ""},
-			{ name: "Opmerking van de proef", value: "" },
+			{ name: "Opmerking van de proef", value: "-" },
 			// { name: "Opdrachtgever", value: "" },
 			// { name: "Opdrachtnemer", value: "" },
 			// { name: "Coördinaten", value: "" }

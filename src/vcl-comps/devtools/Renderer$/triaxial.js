@@ -705,9 +705,6 @@ function setup_parameters(vars) {
 				var mts = vars.stages.SH.measurements;
 				return mts.reduce((t, mt) => t += mt.ROS, 0) / mts.length;
 			}]
-			// ["maxDeviatorStress"],
-			// ["maxPrincipalStressRatio"],
-			// ["axialStrainNN%"],
 		]),
 		category(("ShearPhase"), shearItems, adjustC("maxDeviatorStress", "max_q")),
 		category(("ShearPhase"), shearItems, adjustC("maxPrincipalStressRatio", "max_o_1o_3")),

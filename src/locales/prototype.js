@@ -180,7 +180,7 @@ define((require) => ({
 				"-axialStrainNN%":			{	'': "Bij %s%% axial rek" },
 
 				"-axialStrain": 			{	'': "Axiale rek",					'.unit': "%",		'.symbol': ".Ev" },
-				"-deviatorStressCorrected": {	'': "Deviatorspanning (gecorr.)",	'.unit': "kPa",		'.symbol': ".q_corr" },
+				"-deviatorStressCorrected": {	'': "Gecorrigeerde deviatorspanning",'.unit': "kPa",		'.symbol': ".q_corr" },
 				"-effectiveHorizontalStress":{	'': "Effectieve horizontale spanning",'.unit': "kPa",	'.symbol': ".o_3" },
 				"-effectiveVerticalStress":	{	'': "Effectieve verticale spanning",'.unit': "kPa",		'.symbol': ".o_1" },
 				"-sigma1/3":				{	'': "σ'1/σ'3",						'.unit': "-",		'.symbol': ".o_1o_3" },
