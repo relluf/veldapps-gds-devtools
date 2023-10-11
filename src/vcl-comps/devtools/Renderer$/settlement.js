@@ -1202,9 +1202,11 @@ function setup_parameters(vars, headerValue) {
 	}, {
 		name: "Grensspanning",
 		items: [
+			{ name: "Bjerrum/e", unit: "kPa", symbol: "σ'p", value: js.get("bjerrum.LLi_e.sN1N2.x", vars) },
 			{ name: "Bjerrum/NEN", unit: "kPa", symbol: "σ'p", value: js.get("bjerrum.LLi_rek.sN1N2.x", vars) },
 			{ name: "Isotachen", unit: "kPa", symbol: "σ'p", value: js.get("isotachen.LLi_e.sN1N2.x", vars) },
 			{ name: "Koppejan", unit: "kPa", symbol: "σ'p", value: js.get("koppejan.LLi_1.sN1N2.x", vars) + 0},
+			{ name: "Rek bij Bjerrum/e", symbol: "εCv", unit: "%", value: js.get("bjerrum.LLi_e.sN1N2.y", vars) },
 			{ name: "Rek bij Bjerrum/NEN", symbol: "εCv", unit: "%", value: js.get("bjerrum.LLi_rek.sN1N2.y", vars) * 100 },
 			{ name: "Rek bij Isotachen", symbol: "εHv", unit: "%", value: js.get("isotachen.LLi_e.sN1N2.y", vars) * 100 },
 			{ name: "Rek bij Koppejan", symbol: "εCv", unit: "%", value: js.get("koppejan.LLi_1.sN1N2.y", vars) / vars.Hi * 100 },
