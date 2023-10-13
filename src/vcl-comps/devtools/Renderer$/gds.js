@@ -142,12 +142,15 @@ var logger;
 			this.udr("#array-measurements").setArray(vars.measurements);
 			this.udr("#array-variables").setArray(vars.headers.concat(vars.parameters));
 	
-			var update = (vars.parameters.update = () => {
-				Util.setup_stages_2(vars);
-				Util.setup_variables_1(vars, vars.headerValue);
-				this.udr("#array-variables").setArray(vars.headers.concat(vars.parameters));
-				vars.parameters.update = update;
-			});
+			if(!vars.parameters.update) {
+				var update = (vars.parameters.update = () => {
+					Util.setup_stages_2(vars);
+					Util.setup_variables_1(vars, vars.headerValue);
+					this.udr("#array-variables").setArray(vars.headers.concat(vars.parameters));
+					vars.parameters.update = update;
+				});
+			} else {
+			}
 			
 			var edit = this.udr("#edit-graph-stage"), popup = this.udr("#popup-edit-graph-stage");
 			popup.destroyControls();
