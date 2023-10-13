@@ -1059,6 +1059,193 @@ function calc_dH(vars, stage) {
 		});
 	};
 
+	function setup_casagrande(vars) {
+		var x = "minutes", y = "y_casagrande";
+	/*- setup for minutes and recalculate derivatives */
+		vars.measurements.forEach(m => { 
+			m.x = m.minutes_log10; 
+			m.y = (m.y_casagrande = m.z * 1000);
+		});
+		calc_derivatives(vars.measurements);
+	
+		vars.stages.forEach((stage, index) => { try {
+	
+		/*- determine AB & DEF */
+	
+			var measurements = stage.measurements.slice(1);
+			var M = measurements;
+	
+			var last = measurements[measurements.length - 1];
+			var y0 = measurements[0][y];
+			var yZ = last[y];
+	
+			var idx = 0, vpnn = [], vnnp = [];
+			while(measurements[idx].minutes < 150) { /*- TODO why 150 minutes?! */
+				if(idx && (measurements[idx - 1]["dy'"] < 0) && (measurements[idx]["dy'"] > 0)) {
+					// vpnn.push(measurements[idx]);
+					vpnn.push(idx);
+				}
+				idx++;
+			}
+			while(idx < measurements.length) {
+				if(idx && (measurements[idx - 1]["dy'"] > 0) && (measurements[idx]["dy'"] < 0)) {
+					// vpnn.push(measurements[idx]);
+					vnnp.push(idx);
+				}
+				idx++;
+			}
+			
+			var calc_CG = (stage) => {
+				var guides = [], trendLines = [];
+				
+				var X = {//js.get("casagrande.AB_DEF_X", stage) || {
+					ab1: vpnn[1], ab2: vpnn[3], 
+					def1: vnnp[0], def2: measurements.length - 1
+				};
+				
+				var ab =  [M[X.ab1], M[X.ab2]];
+				var def = [M[X.def1], M[X.def2]];
+	
+				var overrides = js.get("overrides.casagrande.stage" + index + ".lines", vars);
+				if(overrides) {
+					if(overrides.AB) {
+						ab = [
+							{minutes: overrides.AB.initialXValue, y_casagrande: overrides.AB.initialValue},
+							{minutes: overrides.AB.finalXValue, y_casagrande: overrides.AB.finalValue},
+						];
+					}
+					if(overrides.DEF) {
+						def = [
+							{minutes: overrides.DEF.initialXValue, y_casagrande: overrides.DEF.initialValue},
+							{minutes: overrides.DEF.finalXValue, y_casagrande: overrides.DEF.finalValue},
+						];
+					}
+				}
+	
+				var AB = log_line_calc( ab[0][x], ab[1][x],  ab[0][y], ab[1][y] );
+				var DEF = log_line_calc( def[0][x], def[1][x],  def[0][y], def[1][y] );
+		
+			/*- determine d100 */
+		
+				var AB_DEF = log_line_intersect( 
+					ab[0][x], ab[0][y],  ab[1][x], ab[1][y],
+					def[0][x], def[0][y],  def[1][x], def[1][y] );
+					
+				var d100 = AB_DEF.sN1N2.y;
+		
+				/*- Bepaal vervolgens de samendrukking van het proefstuk die overeenkomt met 0 % consolidatie door twee tijden in het begin-gedeelte van de kromme te seleceteren die een verhouding van 1 op 4 bezitten (t, en t4; bijvoorbeeld 0,25 en 1 min).
+				De grootste waarde van de samendrukking bij deze twee tijden moet groter zijn dan een
+				kwart maar minder dan de helft van de totale samendrukking voor de desbetreffende
+				belasting. De samendrukking van de 0 % consolidatie (d) is gelijk aan de samendrukking
+				(a) die optreedt bij de kleinst gekozen tijd, verminderd met het verschil (b - a) in samendrukking van de twee gekozen tijdstippen. Met andere "woorden": d = a - (b -a).*/
+		
+				/*- determine 25-50% samendrukking => boundaries Y (min-max) */
+				var min, max, delta;	
+				measurements.forEach(m => {
+					if(min === undefined || min > m[y]) min = m[y];
+					if(max === undefined || max < m[y]) max = m[y];
+				});
+				delta = max - min;
+					
+				/*- 25-50% boundaries */
+				var b25 = y0 + 0.25 * delta;
+				var b50 = y0 + 0.5 * delta;
+				
+				/*- find two measurements */
+				var t4 = measurements.find(value => value[y] > b25);
+				var t1 = measurements.find(value => t4 && value.minutes >= t4.minutes / 4);
+				
+				var d0 = t4 && t1 ? (t1[y] - (t4[y] - t1[y])) : NaN;
+				var d50 = (d0 + d100) / 2; 
+		
+				guides.push({
+					label: "0%", position: "right",
+					value: d0, dashLength: 1,
+					lineAlpha: 0.75, inside: true
+				}, {
+					label: "50%", position: "right",
+					value: d50, dashLength: 1,
+					lineAlpha: 0.75, inside: true
+				}, {
+					label: "100%", position: "right",
+					value: d100, dashLength: 1,
+					lineAlpha: 0.75, inside: true
+				}, {
+					label: "25-50%", position: "left", 
+					value: b25, dashLength_: 2, lineColor: "green",
+					toValue: b50, fillColor: "green", fillAlpha: 0.05,
+					lineAlpha: 0, inside: true
+				});
+				
+				t1 && guides.push({
+					label: "t1", position: "bottom",
+					value: t1[x], dashLength: 2, lineColor: "orange",
+					lineAlpha: 0.35, inside: true
+				});
+				t4 && guides.push({
+					label: "4t1", position: "bottom",
+					value: t4[x], dashLength: 2, lineColor: "orange",
+					lineAlpha: 0.35, inside: true
+				});
+		
+				// Y = Math.log(1 / AB.b) / Math.log(AB.g);
+				trendLines.push({
+					// initialXValue: AB.b * Math.pow(AB.g, ix), initialValue: ix,
+					initialXValue: 1, initialValue: Math.log(1 / AB.b) / Math.log(AB.g),
+					finalXValue: AB.b * Math.pow(AB.g, yZ), finalValue: yZ,
+					lineColor: "red", lineThickness: 1, editable: true
+				}, {
+					// initialXValue: DEF.b * Math.pow(DEF.g, 0), initialValue: 0,
+					initialXValue: 1, initialValue: Math.log(1 / DEF.b) / Math.log(DEF.g),
+					finalXValue: DEF.b * Math.pow(DEF.g, yZ), finalValue: yZ,
+					lineColor: "green", lineThickness: 1, editable: true
+				});
+			
+				var dt1 = def[0][x], dt2 = def[1][x];
+				var d1 = def[0][y] / 1000, d2 = def[1][y] / 1000;
+				var Calpha = ((d2 - d1) / vars.Hi) / Math.log10(dt2 / dt1);
+			
+				var t50, i50 = measurements.findIndex(m => m[y] >= d50);
+				var t100, i100 = measurements.findIndex(m => m[y] >= d100);
+		
+				if(i50 > 0) t50 = calc_T(d50, measurements[i50 - 1][y], measurements[i50][y], measurements[i50 - 1][x], measurements[i50][x]);
+				if(i100 > 0) t100 = calc_T(d50, measurements[i100 - 1][y], measurements[i100][y], measurements[i100 - 1][x], measurements[i100][x]);
+		
+				stage.casagrande = {
+					d0: d0,
+					d50: d50,
+					d100: d100,
+					
+					min: min,
+					max: max,
+					delta: delta,
+					
+					AB: AB,
+					DEF: DEF,
+					AB_DEF: AB_DEF,
+					// AB_DEF_X: X,
+		
+					guides: guides, trendLines: trendLines,
+					update() { calc_CG(stage); },
+					
+					vpnn: vpnn,
+					vnnp: vnnp,
+					
+					Calpha: Calpha,
+					t50: t50 ? [t50 * 60, t50, d50] : [],
+					t100: t100 ? [t100 * 60, t100, d100] : [],
+		
+					t1: t1, '4t1': t4,
+					dt1: dt1, dt2: dt2, 
+					mt1: def[0], mt2: def[1],
+					
+					d1: d1, d2: d2
+				};
+			};
+			
+			calc_CG(stage);
+		} catch(e) { console.log("casagrande-" + index, e) } });
+	}
 	function setup_taylor(vars) {
 		/*- setup for Taylor-minutes */
 	
@@ -1450,6 +1637,7 @@ function calc_dH(vars, stage) {
 		setup_stages_1: setup_stages_1,
 		setup_stages_2: setup_stages_2,
 		
+		setup_casagrande: setup_casagrande,
 		setup_taylor: setup_taylor,
 		setup_bjerrum: setup_bjerrum,
 		setup_isotachen: setup_isotachen,

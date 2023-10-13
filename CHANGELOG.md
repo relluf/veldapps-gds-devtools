@@ -1,4 +1,8 @@
+# `2023/10/03` veldoffice-geografie-vcl@v139b
 
+- **Bugfix**: Addressed an issue related to line modifications and variable refreshment before generating a report. This bug was initially introduced due to changes required for the triaxial test.
+- **Improvement**: Moving forward, a specific test setup will be utilized for the triaxial test to prevent the unstable behavior experienced in the compression test reporting.
+- **Note**: Further details about the new test setup and subsequent changes will be shared in due course.
 
 # `2023/10/03`
 

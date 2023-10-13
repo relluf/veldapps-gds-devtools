@@ -15,6 +15,9 @@ const Input = require("vcl/ui/Input");
 const Select = require("vcl/ui/Select");
 
 /* Setup (must be called in same order) */
+function setup_casagrande(vars) {
+	return GDS.setup_casagrande(vars);
+}
 function setup_taylor(vars) {
 	return GDS.setup_taylor(vars);
 }
@@ -33,7 +36,7 @@ function setup_stages_1(vars, sacosh) {
 		// 	return max === undefined ? 0 : max - min;
 		// })();
 		stage.dH = GDS.valueOf(stage.measurements[N], "Axial Displacement");
-		stage.dV = GDS.valueOf(stage.measurements[N], "Volume Change") * -1;
+		stage.dV = GDS.valueOf(stage.measurements[0], "Volume Change") - GDS.valueOf(stage.measurements[N], "Volume Change");// * -1;
 		stage.ui = GDS.valueOf(stage.measurements[0], "Pore Pressure");
 		stage.uf = GDS.valueOf(stage.measurements[N], "Pore Pressure");
 		stage.b = GDS.maxOf(stage, "B Value");
@@ -58,6 +61,16 @@ function setup_stages_1(vars, sacosh) {
 	});
 	js.mi((vars.stages.CO), {
 		type: sacosh.type,
+		V: (() => {
+			/*- Vc = V0 - ΔVc
+			
+				Vc: geconsolideerd volume van proefstuk na consolidatie (mm3)
+				ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
+				V0: volume van proefstuk voor test (mm3)
+			
+			*/
+			return (vars.V - vars.stages.CO.dV) / 1000;
+		})(),
 		o_3: (() => {
 			/*- Effectieve celdruk: σ'3 = σc - ub
 	
@@ -86,6 +99,7 @@ function setup_stages_1(vars, sacosh) {
 	});
 	js.mi((vars.stages.CO), {
 		o_1: (() => {
+			return vars.stages.CO.o_3; // ??? segun SPN 2023-10-08
 			/*-	σ'1= σ'3 + q
 			
 				σ'1= vertical effective stress at the end of consolidation (kPa)
@@ -100,17 +114,16 @@ function setup_stages_1(vars, sacosh) {
 			// return GDS.valueOf(mt, "Eff. Radial Stress") + GDS.valueOf(mt, "Deviator Stress");
 			return st.o_3 + GDS.valueOf(mt, "Deviator Stress");
 		})(),
-		V: (() => {
-			/*- Vc = V0 - ΔVc
-			
-				Vc: geconsolideerd volume van proefstuk na consolidatie (mm3)
-				ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
-				V0: volume van proefstuk voor test (mm3)
-			
-			*/
-			return (vars.V - vars.stages.CO.dV) / 1000;
-		})(),
 		H: (() => {
+			/*- Hc = 1/3 * dVc/Vc * H0 */
+			
+			var dVc = vars.stages.CO.dV;
+			var V0 = vars.V;
+			var H0 = vars.H;
+
+			return H0 - (1/3 * (dVc / V0) * H0);
+		})(),
+		H_alt: (() => {
 			/*-	Hc = H0 - ΔHc
 				
 				Hc : height of specimen at the end of the consolidation phase (mm)
@@ -122,13 +135,25 @@ function setup_stages_1(vars, sacosh) {
 			return vars.H - vars.stages.CO.dH;
 		})(),
 		cvT: (() => {
+			
+			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
+			
+			var c = 1.652;
+			var D = vars.D;
+			var H = vars.H;
+			var t100 = vars.stages.CO.taylor.t90[0];
+			var f = 1 / (365.2 * 24 * 3600);
+			
+			return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
+		})(),
+		cvT_alt: (() => {
 			/*-	cv;20 = 0.848 * L2 * fT / t90x
 			
 				-L: length of drainage path = 0.5*H (half of the specimen height of drainage from both ends) (m)
 				-t90: time to 90% primary consolidation (s)
 				-fT: temperature correction factor."
 			*/
-			var stage = vars.stages.SH;
+			var stage = vars.stages.CO;
 			var L = 0.5 * stage.Hi; 
 			var fT = 1, cf = 0.848;
 			var t = stage.taylor.t90[0];
@@ -146,7 +171,28 @@ function setup_stages_1(vars, sacosh) {
 			*/
 			return (vars.stages.CO.dV / vars.V) * 100;
 		})(),
+		cvi: (() => {
+			
+			var D0 = vars.D;
+			var H0 = vars.H;
+			var t100 = Math.sqrt(3);
+			
+			return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
+			
+		})(),
 		mvT: (() => {
+			/*- mv = 1 / o'c * (dVc / V0) 
+			
+				mv : volume compressibility (MPa-1)
+			*/
+			
+			var dVc = vars.stages.CO.dV;
+			var V0 = vars.V;
+			var o_c = vars.stages.CO.o_3;
+			
+			return 1 / o_c * (dVc / V0);
+		})(),
+		mvT_alt: (() => {
 			/*- mv = ΔVc/V0 / (ui - uc) x 1000
 			
 				mv : volume compressibility (MPa-1)
@@ -159,6 +205,8 @@ function setup_stages_1(vars, sacosh) {
 			return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
 		})(),
 		EvT: (() => {
+			
+			return (vars.H - vars.stages.CO.H) / vars.H * 100;
 			/*-	εv;c = ΔHc / H0 x 100
 
 				εv;c = verticale rek na consolidatie (%)
@@ -169,6 +217,11 @@ function setup_stages_1(vars, sacosh) {
 			return vars.stages.CO.dH / vars.H * 100;
 		})(),
 		A: (() => {
+			/*- Ac = Vc / Hc */	
+			
+			return vars.stages.CO.V / vars.stages.CO.H;
+		})(),
+		A_alt: (() => {
 			/*- Ac = (V0 - ΔVc) / (H0 - ΔHc)
 			
 				Ac: geconsolideerde oppervlakte na consolidatie (mm2)
@@ -685,7 +738,7 @@ function setup_parameters(vars) {
 			["effectiveCellPressure"], 
 			["cellPressure", () => meas_N("CO", "Radial Pressure")], 
 			["backPressure", () => meas_N("CO", "Back Pressure")],
-			["poreWaterOverpressure", () => meas_0("CO", "Pore Pressure") - meas_0("CO", "Back Pressure")],
+			["poreWaterOverpressure", () => meas_N("CO", "Pore Pressure") - meas_N("CO", "Back Pressure")],
 			["finalPoreWaterPressure", () => meas_N("CO", "Pore Pressure")],
 			["consolidatedVolume"],
 			["volumetricStrain"],
@@ -1316,6 +1369,8 @@ const handlers = {
 			
 			sacosh.type = this.ud("#input-CO-type").getValue();
 			
+			
+			// setup_casagrande(vars);
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
 			setup_measurements(vars);
