@@ -135,6 +135,42 @@ define(["locale"], Util => {
 
 		return {a: slope, b: (sumY - slope * sumX) / n};
 	}
+	function find_linear_segment(data, x='x', y='y', tolerance=false) {
+	    let maxStableSlopeRange = {start: {[x]: 0, [y]: 0}, end: {[x]: 0, [y]: 0}};
+	    let maxStableSlopeLength = 0;
+	
+	    let currentSlope = (data[1][y] - data[0][y]) / (data[1][x] - data[0][x]);
+	    let currentStableSlopeLength = 1;
+	    
+	    tolerance = tolerance || Util.find_linear_segment_tolerance;
+	
+	    for (let i = 1; i < data.length - 1; i++) {
+	        let nextSlope = (data[i+1][y] - data[i][y]) / (data[i+1][x] - data[i][x]);
+	        if (Math.abs(nextSlope - currentSlope) < tolerance) {  // Tolerantie voor 'gelijke' hellingen
+	            currentStableSlopeLength++;
+	        } else {
+	            if (currentStableSlopeLength > maxStableSlopeLength) {
+	                maxStableSlopeLength = currentStableSlopeLength;
+	                maxStableSlopeRange = {
+	                    start: {[x]: data[i - currentStableSlopeLength][x], [y]: data[i - currentStableSlopeLength][y]},
+	                    end: {[x]: data[i][x], [y]: data[i][y]}
+	                };
+	            }
+	            currentStableSlopeLength = 1;
+	        }
+	        currentSlope = nextSlope;
+	    }
+	    
+	    // Controleer na de lus om te zien of het laatste segment het langste was
+	    if (currentStableSlopeLength > maxStableSlopeLength) {
+	        maxStableSlopeRange = {
+	            start: {[x]: data[data.length - 1 - currentStableSlopeLength][x], [y]: data[data.length - 1 - currentStableSlopeLength][y]},
+	            end: {[x]: data[data.length - 1][x], [y]: data[data.length - 1][y]}
+	        };
+	    }
+	    
+	    return maxStableSlopeRange;
+	}
 
 	/* Trendline Editing */
 	const TrendLine_Mouse_Handlers = {
@@ -1626,7 +1662,9 @@ function calc_dH(vars, stage) {
 		log_line_calc: log_line_calc,
 		calc_derivatives: calc_derivatives,
 		calc_T: calc_T,
-		
+		find_linear_segment: find_linear_segment,
+		find_linear_segment_tolerance: 0.01,
+
 		TrendLine_cursorMoved: cursorMoved, // TODO
 		TrendLine_Mouse_Handlers: TrendLine_Mouse_Handlers,
 		TrendLine_KeyUp_Handlers: TrendLine_KeyUp_Handlers,
@@ -1647,12 +1685,24 @@ function calc_dH(vars, stage) {
 		indexOf: (stage, measurement) => stage.measurements.indexOf(measurement),
 		maxOf: (stage, name) => {
 			var max, r, mts = stage.measurements;
-			// if(name !== "B Value") mts = stage.measurements.slice(0, 400);
 			mts.map(measurement => {
 				const value = Util.valueOf(measurement, name);
 				if(r === undefined || max < value) {
+					if(value !== undefined) {
+						r = measurement;
+						max = value;
+					}
+				}
+			});
+			return r;
+		},
+		minOf: (stage, name) => {
+			var min, r, mts = stage.measurements;
+			mts.map(measurement => {
+				const value = Util.valueOf(measurement, name);
+				if(r === undefined || min > value) {
 					r = measurement;
-					max = value;
+					min = value;
 				}
 			});
 			return r;
