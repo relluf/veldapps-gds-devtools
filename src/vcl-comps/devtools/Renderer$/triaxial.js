@@ -95,7 +95,19 @@ function setup_stages_1(vars, sacosh) {
 			// console.log(js.sf("o_3: %s === %s", oc - ub, r));
 			
 			return oc - ub;
-		})()
+		})(),
+		// t100: (() => {
+		// 	// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231013-161656-iVa3bt.png
+		//     const x = "minutes_sqrt", y = "txVC";
+		// 	const stm = vars.stages.CO.measurements;
+		//     const ls = GDS.find_linear_segment(stm, x, y);
+		//     const max = GDS.maxOf({measurements: stm}, y);
+		
+		// 	ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
+		// 	ls.b = ls.start[y] - ls.m * ls.start[x];
+			
+		// 	return (max[y] - ls.b) / ls.m;
+		// })()
 	});
 	js.mi((vars.stages.CO), {
 		o_1: (() => {
@@ -134,31 +146,31 @@ function setup_stages_1(vars, sacosh) {
 			
 			return vars.H - vars.stages.CO.dH;
 		})(),
-		cvT: (() => {
+		// cvT: (() => {
 			
-			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
+		// 	// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
 			
-			var c = 1.652;
-			var D = vars.D;
-			var H = vars.H;
-			var t100 = vars.stages.CO.taylor.t90[0];
-			var f = 1 / (365.2 * 24 * 3600);
+		// 	var c = 1.652;
+		// 	var D = vars.D;
+		// 	var H = vars.H;
+		// 	var t100 = vars.stages.CO.t100;
+		// 	var f = 1 / (365.2 * 24 * 3600);
 			
-			return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
-		})(),
-		cvT_alt: (() => {
-			/*-	cv;20 = 0.848 * L2 * fT / t90x
+		// 	return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
+		// })(),
+		// cvT_alt: (() => {
+		// 	/*-	cv;20 = 0.848 * L2 * fT / t90x
 			
-				-L: length of drainage path = 0.5*H (half of the specimen height of drainage from both ends) (m)
-				-t90: time to 90% primary consolidation (s)
-				-fT: temperature correction factor."
-			*/
-			var stage = vars.stages.CO;
-			var L = 0.5 * stage.Hi; 
-			var fT = 1, cf = 0.848;
-			var t = stage.taylor.t90[0];
-			return t !== undefined ? cf * (L*L / (1000*1000)) * fT / t : t;
-		})(),
+		// 		-L: length of drainage path = 0.5*H (half of the specimen height of drainage from both ends) (m)
+		// 		-t90: time to 90% primary consolidation (s)
+		// 		-fT: temperature correction factor."
+		// 	*/
+		// 	var stage = vars.stages.CO;
+		// 	var L = 0.5 * stage.Hi; 
+		// 	var fT = 1, cf = 0.848;
+		// 	var t = stage.taylor.t90[0];
+		// 	return t !== undefined ? cf * (L*L / (1000*1000)) * fT / t : t;
+		// })(),
 	});
 	js.mi((vars.stages.CO), {
 		Evol: (() => {
@@ -171,39 +183,39 @@ function setup_stages_1(vars, sacosh) {
 			*/
 			return (vars.stages.CO.dV / vars.V) * 100;
 		})(),
-		cvi: (() => {
+		// cvi: (() => {
 			
-			var D0 = vars.D;
-			var H0 = vars.H;
-			var t100 = Math.sqrt(3);
+		// 	var D0 = vars.D;
+		// 	var H0 = vars.H;
+		// 	var t100 = Math.sqrt(3);
 			
-			return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
+		// 	return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
 			
-		})(),
-		mvT: (() => {
-			/*- mv = 1 / o'c * (dVc / V0) 
+		// })(),
+		// mvT: (() => {
+		// 	/*- mv = 1 / o'c * (dVc / V0) 
 			
-				mv : volume compressibility (MPa-1)
-			*/
+		// 		mv : volume compressibility (MPa-1)
+		// 	*/
 			
-			var dVc = vars.stages.CO.dV;
-			var V0 = vars.V;
-			var o_c = vars.stages.CO.o_3;
+		// 	var dVc = vars.stages.CO.dV;
+		// 	var V0 = vars.V;
+		// 	var o_c = vars.stages.CO.o_3;
 			
-			return 1 / o_c * (dVc / V0);
-		})(),
-		mvT_alt: (() => {
-			/*- mv = ΔVc/V0 / (ui - uc) x 1000
+		// 	return 1 / o_c * (dVc / V0);
+		// })(),
+		// mvT_alt: (() => {
+		// 	/*- mv = ΔVc/V0 / (ui - uc) x 1000
 			
-				mv : volume compressibility (MPa-1)
-				ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
-				V0: volume van proefstuk voor test (mm3)
-				ui: poriënwaterspanning bij begin van consolidatie (kPa)
-				uf: poriënwaterspanning bij eind van consolidatiefase (kPa)
-			*/
-			var st = vars.stages.CO;
-			return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
-		})(),
+		// 		mv : volume compressibility (MPa-1)
+		// 		ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
+		// 		V0: volume van proefstuk voor test (mm3)
+		// 		ui: poriënwaterspanning bij begin van consolidatie (kPa)
+		// 		uf: poriënwaterspanning bij eind van consolidatiefase (kPa)
+		// 	*/
+		// 	var st = vars.stages.CO;
+		// 	return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
+		// })(),
 		EvT: (() => {
 			
 			return (vars.H - vars.stages.CO.H) / vars.H * 100;
@@ -244,7 +256,7 @@ function setup_stages_1(vars, sacosh) {
 			*/
 			var st = vars.stages.CO;
 			return st.o_3 / st.o_1;
-		})()
+		})(),
 	});
 
 }
@@ -267,7 +279,7 @@ function setup_measurements(vars) {
 
 	vars.stages.forEach(stage => stage.measurements.map((mt, index, arr) => {
 		mt.ROS = GDS.rateOfStrain(arr, index);
-		mt.txVC = (GDS.valueOf(mt, "Back Volume") - back0(stage)) / 1000;
+		mt.txVC = (GDS.valueOf(mt, "Back Volume") - back0(stage)) / -1000;
 			// mt.txVC = GDS.valueOf(mt, "Volume Change") * -1;
 		mt.txPWPR = GDS.valueOf(mt, "PWP Ratio");
 		mt.txDS = GDS.valueOf(mt, "Deviator Stress"); //qs_r
@@ -459,6 +471,84 @@ function setup_measurements(vars) {
 		}
 	}));
 }
+function setup_stages_2(vars) {
+	js.mi((vars.stages.CO), {
+		t100: (() => {
+			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231013-161656-iVa3bt.png
+		    const x = "minutes_sqrt", y = "txVC";
+			const stm = vars.stages.CO.measurements;
+		    const ls = GDS.find_linear_segment(stm, x, y);
+		    const max = GDS.maxOf({measurements: stm}, y);
+		
+			ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
+			ls.b = ls.start[y] - ls.m * ls.start[x];
+			
+			return (max[y] - ls.b) / ls.m;
+		})()
+	});
+	js.mi((vars.stages.CO), {
+		cvT: (() => {
+			
+			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
+			
+			var c = 1.652;
+			var D = vars.D;
+			var H = vars.H;
+			var t100 = vars.stages.CO.t100;
+			var f = 1 / (365.2 * 24 * 3600);
+			
+			return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
+		})(),
+		cvT_alt: (() => {
+			/*-	cv;20 = 0.848 * L2 * fT / t90x
+			
+				-L: length of drainage path = 0.5*H (half of the specimen height of drainage from both ends) (m)
+				-t90: time to 90% primary consolidation (s)
+				-fT: temperature correction factor."
+			*/
+			var stage = vars.stages.CO;
+			var L = 0.5 * stage.Hi; 
+			var fT = 1, cf = 0.848;
+			var t = stage.taylor.t90[0];
+			return t !== undefined ? cf * (L*L / (1000*1000)) * fT / t : t;
+		})()
+	});
+	js.mi((vars.stages.CO), {
+		cvi: (() => {
+			
+			var D0 = vars.D;
+			var H0 = vars.H;
+			var t100 = Math.sqrt(3);
+			
+			return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
+			
+		})(),
+		mvT: (() => {
+			/*- mv = 1 / o'c * (dVc / V0) 
+			
+				mv : volume compressibility (MPa-1)
+			*/
+			
+			var dVc = vars.stages.CO.dV;
+			var V0 = vars.V;
+			var o_c = vars.stages.CO.o_3;
+			
+			return 1 / o_c * (dVc / V0);
+		})(),
+		mvT_alt: (() => {
+			/*- mv = ΔVc/V0 / (ui - uc) x 1000
+			
+				mv : volume compressibility (MPa-1)
+				ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
+				V0: volume van proefstuk voor test (mm3)
+				ui: poriënwaterspanning bij begin van consolidatie (kPa)
+				uf: poriënwaterspanning bij eind van consolidatiefase (kPa)
+			*/
+			var st = vars.stages.CO;
+			return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
+		})()
+	});
+}
 function setup_mohr_coulomb(vars, root) {
 	const stage = vars.stages.SH;
 	const max_q = GDS.maxOf(stage, "qs_c");
@@ -578,15 +668,21 @@ function setup_parameters(vars) {
 				r[key] = locale(k);
 			}
 		});
-
-		if(item.length === 1 && r.symbol) {
+		
+		if(r.symbol) {
 			r.value = js.get(r.symbol, vars);
-		} else if(typeof item[1] === "string") {
+		}
+
+		if(typeof item[1] === "string") {
 			r.value = vars.headerValue(item[1], true);
 		} else if(typeof item[1] === "function") {
 			r.value = item[1]();
-		} else { 
-			r.value = "?";
+		} else if(typeof item[1] === "object") { 
+			if(item[1].exponential) {
+				r.value = r.value.toExponential(item[1].exponential);
+			}
+		} else if(!isNaN(r.value) && r.value < 1.0e-03 && r.value > -1.0e-3) {
+			r.value = r.value.toExponential(3);
 		}
 		
 		if(typeof item[2] === "function") { // transform
@@ -745,7 +841,7 @@ function setup_parameters(vars) {
 			["consolidatedHeight"],
 			["consolidatedArea"],
 			["volumeCompressibility"],
-			["consolidationCoefficient"],
+			["consolidationCoefficient", {exponential: 3}],
 			["verticalStrain"],
 			["effectiveVerticalStress"],
 			["k0AfterConsolidation"],
@@ -897,7 +993,7 @@ function makeChart(c, opts) {
 		options = js.mixIn(defaults, options);
 		options.graphs = options.graphs || this.vars("am.series").map(serie => {
 			return js.mixIn({
-	        	type: "line", lineThickness: 3,
+	        	type: "line", lineThickness: 2,
 		        connect: serie.connect || false,
 			    xField: serie.categoryField || "x", 
 			    yField: serie.valueField || "y",
@@ -1101,6 +1197,152 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 	this.getNode().qs("svg")._description = series[0].title;
     
 }
+function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true, time_key = GDS.key_t) {
+/*-
+	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
+	- `seriesTitle` is a string that represents the title of the chart series.
+	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
+	- `valueField` is a string that specifies the field used for the values in the chart.
+	- `categoryField` is a string that specifies the field used for the categories in the chart.
+	- `selected` (string) indicates which stage is selected (SA, CO or SH)
+	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
+*/
+	var sampleMeasurements_ = getSampleMeasurements(this, vars);
+	if(!sampleMeasurements_) return;
+
+	const sampleMeasurements = [
+    	js.$[this.ud("#select-sample-1").getValue()], 
+    	js.$[this.ud("#select-sample-2").getValue()], 
+    	js.$[this.ud("#select-sample-3").getValue()]
+    ]
+    	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected))
+    	.map(stage => stage.measurements);
+
+    var content = ["<div><img src='/shared/vcl/images/loading.gif'></div>"];
+    var render_stages = [vars.stages[selected]];
+    this._node.innerHTML = content.join("");
+    this.vars("rendering", true);
+
+    const index = {};
+    sampleMeasurements.forEach((arr, i) => {
+    	return arr.forEach(mt_s => {
+    		let s = GDS.valueOf(mt_s, time_key);
+    		let mt_d = index[s] = index[s] || {};
+    		
+    		mt_d['mt_' + (i + 1)] = mt_s;
+    		mt_d[valueField + (i + 1)] = mt_s[valueField];
+    		// mt_d[categoryField] = mt_s[categoryField];
+    		mt_d[categoryField + (i + 1)] = mt_s[categoryField];
+    	});
+    });
+
+	const remove = false; //this.ud("#input-removeInvalidMts").getValue(); disabled for now
+	const all = Object.keys(index).map(key => index[key]);
+	const stageMeasurements = vars.stages.map((st, i) => all
+			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
+			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
+
+    const render = () => {
+        const stage = render_stages[st];
+        const series = sampleMeasurements.map((mts, i) => ({
+            title: js.sf(seriesTitle, selected),
+            valueAxis: "y1",
+            valueField: valueField + (i + 1),
+            categoryField: categoryField + (i + 1),
+        }));
+        const trendLines = [], guides = [];
+        
+        const colors = ["black", "red", "green"];
+        
+        [1, 2, 3].forEach(i => {
+        	const stm = stageMeasurements[i - 1];
+	        const x = categoryField + i, y = valueField + i;
+	        const ls = GDS.find_linear_segment(stm, x, y);
+	        const max = GDS.maxOf({measurements: stm}, y)
+
+this.print("max-" + y, max[y])
+this.print("max-" + y + "-measurements", stm)
+
+			ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
+			ls.b = ls.start[y] - ls.m * ls.start[x];
+			
+			const t100 = (max[y] - ls.b) / ls.m;
+            trendLines.push({
+				initialXValue: ls.start[x], initialValue: 0,
+				finalXValue: ls.start[x], finalValue: 100,
+				lineColor: colors[i - 1], lineAlpha: 0.25,
+				dashLength: 2
+            }, {
+				initialXValue: ls.end[x], initialValue: 0,
+				finalXValue: ls.end[x], finalValue: 100,
+				lineColor: colors[i - 1], lineAlpha: 0.25,
+				dashLength: 2
+            }, {
+				initialXValue: 0, initialValue: max[y],
+				finalXValue: 100, finalValue: max[y],
+				lineColor: colors[i - 1], lineAlpha: 0.25,
+				dashLength: 2
+            }, {
+		        initialXValue: -ls.b / ls.m, initialValue: 0,
+		        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
+		        lineColor: colors[i - 1], lineAlpha: 0.25,
+		        dashLength: 2
+            // }, {
+		        // initialXValue: t100, initialValue: 0,
+		        // finalXValue: t100, finalValue: max[y] * 2,
+		        // lineColor: colors[i - 1], lineAlpha: 0.75,
+		        // dashLength: 2
+            });
+            guides.push({
+            	label: "t100", 
+            	above: true, inside: true,
+		        position: "bottom", 
+		        value: t100, lineAlpha: 0.8,
+				lineColor: colors[i - 1]
+            })
+        })
+        
+        this.vars("am", {
+            series: series,
+            stage: stage,
+            data: stageMeasurements[st],
+            trendLines: trendLines,
+            guides: guides
+        });
+        this.vars("am-" + st, this.vars("am"));
+        
+        makeChart(this, {
+            immediate: true,
+            node: this.getChildNode(st),
+            colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
+            trendLines: trendLines, 
+            valueAxes: [{
+                id: "y1",
+                position: "left",
+                reversed: reversed,
+            }, {
+                id: "x1",
+                position: "bottom",
+                title: js.sf(valueAxisTitle, selected),
+                logarithmic: logarithmic,
+                guides: guides,
+                treatZeroAs: GDS.treatZeroAs
+            }]
+        });
+        
+		this.getChildNode(st).qs("svg")._description = series[0].title;
+
+        if (++st < render_stages.length) {
+            this.nextTick(render);
+        } else {
+        	this.getChildNode(0).classList.add("print");
+        	this.vars("rendering", false);
+        }
+    };
+
+    var st = 0;
+    render_stages.length && render();
+}
 
 /* Event Handlers */
 const handlers = {
@@ -1201,10 +1443,10 @@ const handlers = {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "CO";
 	
-	    renderChart.call(this, vars, 
+	    renderChartL.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
-	    	"txVC", "minutes_sqrt", selected, false, false, GDS.key_T);
+	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_T);
 	},
 	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
@@ -1374,6 +1616,7 @@ const handlers = {
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
 			setup_measurements(vars);
+			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
 			setup_parameters(vars);
 		}
