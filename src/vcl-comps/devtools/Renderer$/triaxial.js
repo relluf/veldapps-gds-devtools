@@ -497,7 +497,7 @@ function setup_stages_2(vars) {
 			var t100 = vars.stages.CO.t100;
 			var f = 1 / (365.2 * 24 * 3600);
 			
-			return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
+			return f * (c * D * D) / ((H/D) * (H/D) * t100 * t100); // m2/year
 		})(),
 		cvT_alt: (() => {
 			/*-	cv;20 = 0.848 * L2 * fT / t90x
