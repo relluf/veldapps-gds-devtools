@@ -226,12 +226,12 @@ function setup_stages_1(vars, sacosh) {
 				H0 : initiële proefstukshoogte (mm)
 				ΔHc: proefstukshoogteverandering tijdens consolidatie (mm) (verticale vervorming)
 			*/
-			return vars.stages.CO.dH / vars.H * 100;
+			// return vars.stages.CO.dH / vars.H * 100;
 		})(),
 		A: (() => {
 			/*- Ac = Vc / Hc */	
 			
-			return vars.stages.CO.V / vars.stages.CO.H;
+			return (vars.stages.CO.V / vars.stages.CO.H) * 1000;
 		})(),
 		A_alt: (() => {
 			/*- Ac = (V0 - ΔVc) / (H0 - ΔHc)
@@ -609,7 +609,7 @@ function setup_mohr_coulomb(vars, root) {
     	.map(r => r.vars(["variables.stages.SH"]))
     	.filter(o => o);
     	
-    if(shss.length !== 3) return root.print("mohr canceled", root.vars(["resource.uri"]));
+    if(shss.length !== 3) return;// root.print("mohr canceled", root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
@@ -676,11 +676,7 @@ function setup_parameters(vars) {
 		if(typeof item[1] === "string") {
 			r.value = vars.headerValue(item[1], true);
 		} else if(typeof item[1] === "function") {
-			r.value = item[1]();
-		} else if(typeof item[1] === "object") { 
-			if(item[1].exponential) {
-				r.value = r.value.toExponential(item[1].exponential);
-			}
+			r.value = item[1](r.value);
 		} else if(!isNaN(r.value) && r.value < 1.0e-03 && r.value > -1.0e-3) {
 			r.value = r.value.toExponential(3);
 		}
@@ -774,8 +770,10 @@ function setup_parameters(vars) {
 		}
 		c.items.forEach(item => {
 			if(item.symbol && item.symbol.startsWith(".")) {
-				// item.symbol = js.sf("stages.SH.%s.%s", key, item.symbol.substring(1));
-				item.value = js.get(js.sf("stages.SH.%s.%s", key, item.symbol.substring(1)), vars)
+				item.value = js.get(js.sf("stages.SH.%s.%s", key, item.symbol.substring(1)), vars);
+				if(item.symbol.endsWith("phi_") || item.symbol.endsWith("c_")) {
+					item.value = Math.round(item.value + 0.5);
+				}
 			}
 		});
 	};
@@ -841,7 +839,7 @@ function setup_parameters(vars) {
 			["consolidatedHeight"],
 			["consolidatedArea"],
 			["volumeCompressibility"],
-			["consolidationCoefficient", {exponential: 3}],
+			["consolidationCoefficient"],
 			["verticalStrain"],
 			["effectiveVerticalStress"],
 			["k0AfterConsolidation"],
@@ -1004,12 +1002,16 @@ function makeChart(c, opts) {
 		var serializing = this.ud("#graphs").hasClass("pdf");
 		
 		options.valueAxes.forEach(ax => {
+			ax.precision = 2;
+			ax.balloonTextFunction = (v) => parseFloat(v).toFixed(2).replace(/[.]*0*$/g, "");
 			ax.includeGuidesInMinMax = true;
 			if(serializing) {
 				delete ax.title;
 			} else {
 				ax.zoomable = true;
 			}
+			
+			
 			// ax.ignoreAxisWidth = true;
 			// ax.inside = true;
 		});
@@ -1260,9 +1262,6 @@ function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryFie
 	        const ls = GDS.find_linear_segment(stm, x, y);
 	        const max = GDS.maxOf({measurements: stm}, y)
 
-this.print("max-" + y, max[y])
-this.print("max-" + y + "-measurements", stm)
-
 			ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
 			ls.b = ls.start[y] - ls.m * ls.start[x];
 			
@@ -1404,11 +1403,7 @@ const handlers = {
 	},
 	'#bar-user-inputs onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
-
-			if(!this.isEnabled()) {
-				this.print("ignored bar-user-inputs change");
-				return;
-			}
+			if(!this.isEnabled()) return ;//this.print("ignored bar-user-inputs change");
 
 			var modified = this.ud("#modified");
 			var blocked = modified.vars("blocked");
