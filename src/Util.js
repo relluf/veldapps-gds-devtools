@@ -142,9 +142,13 @@ define(["locale"], Util => {
 	    let currentSlope = (data[1][y] - data[0][y]) / (data[1][x] - data[0][x]);
 	    let currentStableSlopeLength = 1;
 	    
+	    let Hmin = Util.minOf({measurements: data}, y)[y];
+	    let Hmax = Util.maxOf({measurements: data}, y)[y];
+	    Hmin += (Hmax - Hmin) / 2;
+	    
 	    tolerance = tolerance || Util.find_linear_segment_tolerance;
 	
-	    for (let i = 1; i < data.length - 1; i++) {
+	    for (let i = 1; data[i][y] < Hmin && i < data.length - 1; i++) {
 	        let nextSlope = (data[i+1][y] - data[i][y]) / (data[i+1][x] - data[i][x]);
 	        if (Math.abs(nextSlope - currentSlope) < tolerance) {  // Tolerantie voor 'gelijke' hellingen
 	            currentStableSlopeLength++;
