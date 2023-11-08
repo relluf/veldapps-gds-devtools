@@ -1,4 +1,4 @@
-"use ./Util, locale!./locales/nl, vcl/ui/Button, vcl/ui/Tab, papaparse/papaparse, amcharts, amcharts.serial, amcharts.xy, lib/node_modules/regression/dist/regression, vcl/ui/Node-closeable, vcl/ui/Input, vcl/ui/Select";
+"use GDSFotos, ./Util, locale!./locales/nl, vcl/ui/Button, vcl/ui/Tab, papaparse/papaparse, amcharts, amcharts.serial, amcharts.xy, lib/node_modules/regression/dist/regression, vcl/ui/Node-closeable, vcl/ui/Input, vcl/ui/Select, util/Hash";
 
 window.locale.loc = 'nl'; // TODO
 
@@ -13,6 +13,7 @@ const Tab = require("vcl/ui/Tab");
 const Control = require("vcl/Control");
 const Input = require("vcl/ui/Input");
 const Select = require("vcl/ui/Select");
+const Hash = require("util/Hash");
 
 /* Setup (must be called in same order) */
 function setup_casagrande(vars) {
@@ -657,7 +658,7 @@ function setup_mohr_coulomb(vars, root) {
 		root.print("mohr ready", root.vars(["resource.uri"]));
 	}
 }
-function setup_parameters(vars) {
+function setup_parameters(vars) { 
 	const hvis = (section, items) => items.map(item => {
 		var k, r = {
 			name: locale(js.sf("Section:%s-%s", section, item[0]))
@@ -1343,6 +1344,8 @@ function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryFie
     render_stages.length && render();
 }
 
+const GDSFotos = require("GDSFotos");
+
 /* Event Handlers */
 const handlers = {
 	'#panel-edit-graph > vcl/ui/Input onChange': function(evt) {
@@ -1353,7 +1356,7 @@ const handlers = {
 	'#bar-user-inputs onLoad'() { 
 		// this.print("onLoad");
 		this.nextTick(() => this.nodeNeeded());
-		this.nextTick(() => this.ud("#refresh").execute());
+		// this.nextTick(() => this.ud("#refresh").execute());
 	},
 	'#bar-user-inputs onNodeCreated'() {
 		// this.print("onNodeCreated");
@@ -1544,10 +1547,94 @@ const handlers = {
 	
 			st = 0; vars.stages.length && render();
 		}, 125);
-	}
+	},
+	
+	'.-photo-placeholder tap'(evt) {
+		if(evt.target.classList.contains("fa-trash")) {
+			evt.target.up().qs("img").src = "";
+			this.removeClass("has-photo");
+			this.removeClass("is-uploaded");
+			this.removeVar("ddh-item");
+			this.removeVar("ddh-item-hash");
+			this.removeVar("vo:foto");
+		} else {
+			const ddh = this.app().qs("DragDropHandler<>:root");
+			this.getParent().vars("photo-placeholder", this);
+			ddh.vars("input").click();
+		}
+	},
+	
 };
 
 [(""), {
+	onLoad() {
+		const group = this.qs("#group_fotos");
+		const ddh = this.app().qs("DragDropHandler<>:root");
+
+		this.override({
+			visibleChanged() {
+				const is = this.isVisible();
+				
+				if(is && !this.vars("listeners")) {
+					this.vars("listeners", ddh.on({
+						'dragover': () => {
+							group.vars("photo-placeholder", null);
+						},
+						'before-dropped': () => {
+							// console.log("before-dropped");
+						},
+						'dropped': (evt) => { // really need -this- to be Editor<gds>
+							const items = evt.items || evt.files;
+							const tapped = group.vars("photo-placeholder");
+							const d = !tapped ? 1 : tapped.getIndex();
+							
+							group.addClass("loading");
+							group.setTimeout(() => Promise
+								.all(items.map(i => Promise.resolve(i.readerResult)))
+								.then(res => items.forEach((item, i) => {
+									var el = group.getControl(i + d);
+									if(el) {
+										var img = el.getNode().qs("img");
+										if(img) {
+											this.setTimeout(js.sf("%d_%d", i, Date.now()), () => {
+												GDSFotos.drawThumb(img, item.readerResult);
+											}, 0);
+											el.vars("ddh-item", item);
+										}
+										el.syncClass("has-photo", !!img);
+									}
+								}))
+								.finally(() => {
+									GDSFotos.refresh(this);
+									group.removeClass("loading");
+								}), 500);
+						},
+						'after-dropped': () => {
+							// console.log("after-dropped");
+						},
+						'dragenter': (evt) => {
+							group.vars("photo-placeholder", null);
+						},
+						'dragleave': (evt) => {
+							// const group = this.qs("#group_fotos");
+							// group.vars("photo-placeholder", null);
+						}
+					}));
+					this.print("START", this.vars("listeners"));
+					ddh.setEnabled(true);
+					ddh.vars("parentNode", group.getNode());
+					this.print("parentNode", ddh.vars("parentNode"));
+				} else if(!is && this.vars("listeners")) {
+					ddh.un(this.removeVar("listeners"));
+					this.print("STOPPED");
+					ddh.setEnabled(false);
+				}
+				
+				return this.inherited(arguments);
+			}
+		});
+		return this.inherited(arguments);
+	},
 	handlers: handlers,
 	vars: { 
 		layout: "grafieken/documenten/Triaxiaalproef",
@@ -1606,7 +1693,6 @@ const handlers = {
 			
 			sacosh.type = this.ud("#input-CO-type").getValue();
 			
-			
 			// setup_casagrande(vars);
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
@@ -1619,7 +1705,6 @@ const handlers = {
 }, [
     ["vcl/Action", ("refresh-select-samples"), {
     	on() { // TODO implement devtools/Workspace<>-environment as well :-p
-    	
     		this.setEnabled(false);
 
 			let modified = this.ud("#modified");
@@ -1754,45 +1839,63 @@ const handlers = {
             ["vcl/ui/Button", ("button_generate"), { action: "report-generate" }]
         ]],
         ["vcl/ui/Group", { classes: "seperator" }],
-        ["vcl/ui/Group", ("group_layout"), {}, [
+		["vcl/ui/Group", ("group_fotos"), {
+			css: {
+				'&.loading': "background-image: url(/shared/vcl/images/loading.gif); background-position: 50% 0; background-repeat: no-repeat;",
+				'.photo-placeholder': {
+					'': "margin: 16px 6px; width: 120px; height: 150px; border-radius: 17px; background-color: #f0f0f0;  padding: 4px; display: inline-block; vertical-align: top;",
+					'> div': "border: 3px dashed gray; border-radius: 15px; height: 142px; text-align: center; padding-top: 50%;",
+
+					'&:hover:hover:hover > div': "cursor: pointer; font-weight: bold; border-width: 5px; padding-top: 48%;",
+					'&.sample1 > div': "color: rgba(0, 0, 0, 0.55); background-color: rgba(0, 0, 0, 0.05); border-color: rgba(0, 0, 0, 0.55);",
+					'&.sample2 > div': "color: rgba(255, 0, 0, 0.55); background-color: rgba(255, 0, 0, 0.05); border-color: rgba(255, 0, 0, 0.55);",
+					'&.sample3 > div': "color: rgba(112, 173, 71, 0.55); background-color: rgba(112, 173, 71, 0.05); border-color: rgba(112, 173, 71, 0.55);",
+					'img': "pointer-events:none;border-radius: 17px; border: 3px solid transparent; position: relative; top: -100%; width: 100%; height: 100%; object-fit: contain; padding: 3px; background-color: rgba(255,255,255,0.25);",
+					'img.selected': "border: 3px solid rgb(56, 121, 217); background-color: rgba(255, 255, 255, 0.2);",
+					'i.fa-trash': "top: -123%; left: 75%; color: white; background-color: rgba(0, 0, 0, 0.5); padding: 5px; border-radius: 5px; position: relative; cursor: pointer; z-index: 100;",
+					'&.is-uploaded i.fa-trash': "top: -223%;",
+					
+					'&:not(.is-uploading) .upload-overlay': "display: none;",
+					'.upload-overlay': "position: relative; top: -202%; left: 0; width: 0%; height: 100%; background-color: rgba(56,121,217,0.25); transition: width 0.45s ease-in; border-radius: 15px;",
+					'&.has-error .upload-overlay': "display: block; width: 100%; background-color: rgba(255,0,0,0.5);",
+					'&.is-uploaded .upload-overlay': "display: block; width: 100%; background-color: rgba(56,121,217,0.35);",
+					
+					'&:not(:hover) i.fa-trash': "display: none;",
+					'&:not(.has-photo)': { 
+						'img': "display: none;", 
+						'i.fa-trash': "display: none;"
+					}
+				}
+			}
+		}, [
+			["vcl/ui/Element", { classes: "header", content: "Deformatiefoto's" }],
 			["vcl/ui/Element", {
-				classes: "header",
-				content: "Opmaak"
+				classes: "photo-placeholder sample1",
+				content: "<div>Monster 1,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
-			["vcl/ui/Select", ("option_layout"), {
-				options: [
-					{ value: "2", content: "Standaard" },
-				],
-				value: "2"
+			["vcl/ui/Element", {
+				classes: "photo-placeholder sample1",
+				content: "<div>Monster 1,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+			}],
+			["vcl/ui/Element", {
+				classes: "photo-placeholder sample2",
+				content: "<div>Monster 2,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+			}],
+			["vcl/ui/Element", {
+				classes: "photo-placeholder sample2",
+				content: "<div>Monster 2,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+			}],
+			["vcl/ui/Element", {
+				classes: "photo-placeholder sample3",
+				content: "<div>Monster 3,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+			}],
+			["vcl/ui/Element", {
+				classes: "photo-placeholder sample3",
+				content: "<div>Monster 3,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}]
-        ]],
-        ["vcl/ui/Group", ("group_orientation"), {}, [
-            ["vcl/ui/Element", {
-                classes: "header",
-                content: "Orientatie"
-            }],
-            ["vcl/ui/Select", "orientation", {
-                // enabled: false,
-                options: ["Staand (A4)"]
-            }]
-        ]],
-        ["vcl/ui/Group", ("group_locale"), {}, [
-            ["vcl/ui/Element", {
-                classes: "header",
-                content: "Taal"
-            }],
-            ["vcl/ui/Select", "locale", {
-                options: [{
-                    value: "nl_NL",
-                    content: "Nederlands (NL)"
-                // },
-                // {
-                //     value: "en_UK",
-                //     content: "English (UK)"
-                }]
-            }]
-        ]],
-        ["vcl/ui/Group", { classes: "seperator" }],
+			
+		]],
+		["vcl/ui/Group", { classes: "seperator" }],
         ["vcl/ui/Group", ("group_options"), {}, [
             ["vcl/ui/Group", [
 	            ["vcl/ui/Checkbox", "option_footer", {
