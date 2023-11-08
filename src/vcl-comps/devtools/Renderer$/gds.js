@@ -15,7 +15,7 @@ define("devtools/Renderer<gds>.parseValue", () => (value) => isNaN(value.replace
 */
 
 const js = require("js");
-const Util = require("./Util");
+const GDS = require("./Util");
 
 const Button = require("vcl/ui/Button");
 const Tab = require("vcl/ui/Tab");
@@ -51,26 +51,8 @@ const handlers = {
 				me.on("destroy", () => me.setOwner(previous_owner));
 			}
 	 	}
-	 	
-	 	logger = this;
 	}
 };
-
-/* Other */
-function getSelectedGraph(cmp) {
-	var graph;
-	if(cmp instanceof Tab) {
-		graph = cmp.getControl();
-	} else {
-		graph = cmp.ud("#tabs-graphs").getSelectedControl(1).getControl();
-	}
-	return {
-		id: graph.getName().substring("graph".length + 1).toLowerCase(),
-		multiple: graph.hasClass("multiple")
-	};
-}
-
-var logger; 
 
 ["", { handlers: handlers }, [
 	
@@ -120,22 +102,22 @@ var logger;
 			var measurements = lines.filter(_ => _.split("\"").length > 15);
 	
 		/*- parse columns */
-			vars.columns = measurements.shift().split(",").map(Util.removeQuotes);
+			vars.columns = measurements.shift().split(",").map(GDS.removeQuotes);
 			vars.headerValue = headerValue;
 		
 		/*- parse headers */	
 			vars.headers = headers.map(_ => _.split("\",\"")).filter(_ => _.length === 2)
-				.map(_ => [Util.removeTrailingColon(_[0].substring(1)), _[1].substring(0, _[1].length - 2)])
-				.map(_ => ({category: "Header", name: _[0], value: Util.parseValue(_[1]), raw: _[1]}));
+				.map(_ => [GDS.removeTrailingColon(_[0].substring(1)), _[1].substring(0, _[1].length - 2)])
+				.map(_ => ({category: "Header", name: _[0], value: GDS.parseValue(_[1]), raw: _[1]}));
 			
 		/*- use overrides immediately (if any) */	
 			vars.overrides = this.vars(["overrides"]);
 		
 		/*- setup dataset and variables */
-			Util.setup_measurements_1(vars, Parser.parse(measurements.join("\n"), options).data);
-			Util.setup_variables_1(vars, headerValue);
-			Util.setup_measurements_2(vars);
-			Util.setup_stages_1(vars);
+			GDS.setup_measurements_1(vars, Parser.parse(measurements.join("\n"), options).data);
+			GDS.setup_variables_1(vars, headerValue);
+			GDS.setup_measurements_2(vars);
+			GDS.setup_stages_1(vars);
 			
 			this.applyVar("setup", [], true); // no args, fallback to owner
 			
@@ -144,8 +126,8 @@ var logger;
 	
 			if(!vars.parameters.update) {
 				var update = (vars.parameters.update = () => {
-					Util.setup_stages_2(vars);
-					Util.setup_variables_1(vars, vars.headerValue);
+					GDS.setup_stages_2(vars);
+					GDS.setup_variables_1(vars, vars.headerValue);
 					this.udr("#array-variables").setArray(vars.headers.concat(vars.parameters));
 					vars.parameters.update = update;
 				});
@@ -173,7 +155,7 @@ var logger;
     	visible: false,
     	on(evt) {
 			var vars = this.vars(["variables"]), am, node, chart;
-    		var graph = this.ud("#graphs > :visible"), state;
+    		var graph = this.ud("#graphs > :visible[groupIndex=-1]"), state;
     		var stage = evt && evt.component.vars("stage");
 
     		am = (evt && evt.am) || graph.getNode().down(".amcharts-main-div");
@@ -190,7 +172,7 @@ var logger;
 				this.ud("#popup-edit-graph-stage")._controls.forEach(c => c.setSelected("never"));
 				// stage = undefined;
 			} else {
-				vars.editor = new TrendLineEditor(vars, vars.stages[stage], chart, graph);
+				vars.editor = new GDS.TrendLineEditor(vars, vars.stages[stage], chart, graph);
 				node = graph.getNode();
 				node.previous_scrollTop = node.scrollTop;
 				node.scrollTop = 0;
@@ -205,7 +187,20 @@ var logger;
 					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
 				}
 			}
-			
+
+function getSelectedGraph(cmp) {
+	var graph;
+	if(cmp instanceof Tab) {
+		graph = cmp.getControl();
+	} else {
+		graph = cmp.ud("#tabs-graphs").getSelectedControl(1).getControl();
+	}
+	return {
+		id: graph.getName().substring("graph".length + 1).toLowerCase(),
+		multiple: graph.hasClass("multiple")
+	};
+}
+
 			var multiple = getSelectedGraph(this).multiple;
 			this.ud("#panel-edit-graph").setVisible(this.getState() && !multiple);
     	}

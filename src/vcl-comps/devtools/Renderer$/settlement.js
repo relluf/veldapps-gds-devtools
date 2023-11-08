@@ -192,13 +192,13 @@ const handlers = {
 			}
 		}, 750);
 	},
-	"#graph_Casagrande cursor-moved": cursorMoved,
-	"#graph_Taylor cursor-moved": cursorMoved,
-	"#graph_Bjerrum_e cursor-moved": cursorMoved,
-	"#graph_Bjerrum_r cursor-moved": cursorMoved,
-	"#graph_Isotachen cursor-moved": cursorMoved,
-	"#graph_Isotachen_c cursor-moved": cursorMoved,
-	"#graph_Koppejan cursor-moved": cursorMoved,
+	"#graph_Casagrande cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Taylor cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Bjerrum_e cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Bjerrum_r cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Isotachen cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Isotachen_c cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Koppejan cursor-moved": GDS.TrendLine_cursorMoved,
 
 	"#graph_Casagrande onRender"() {
 		this.setTimeout("render", () => {
@@ -1292,348 +1292,6 @@ function koppejan_variables(vars) {
 	];
 }
 
-/* Trendline Editing */
-const TrendLine_Mouse_Handlers = {
-	mousemove(graph, trendLine, evt) {
-		var moved = graph.vars("last-cursor-moved");
-		if(!moved) return;
-		
-		var previous = graph.vars("previous-cursor-moved");
-		graph.vars("previous-cursor-moved", moved);
-		if(!previous) return;
-		
-		var first = graph.vars("first-cursor-moved");
-		if(!first) {
-			graph.vars("first-cursor-moved", (first = previous));
-			graph.vars("first-position", [
-				trendLine.initialXValue, trendLine.initialValue,
-				trendLine.finalXValue, trendLine.finalValue
-			]);
-		}
-		
-		var pos1 = [
-			trendLine.chart.xAxes[0].coordinateToValue(moved.x),
-			trendLine.chart.yAxes[0].coordinateToValue(moved.y)
-		];
-		var pos2 = [
-			trendLine.chart.xAxes[0].coordinateToValue(previous.x),
-			trendLine.chart.yAxes[0].coordinateToValue(previous.y)
-		];
-		var pos3 = [
-			trendLine.chart.xAxes[0].coordinateToValue(first.x),
-			trendLine.chart.yAxes[0].coordinateToValue(first.y)
-		];
-		var fp = graph.vars("first-position");
-		
-		var dx = Math.log10(pos3[0] / pos1[0]);
-		var dy = pos3[1] - pos1[1];
-
-		if(evt.shiftKey === true) {
-			trendLine.modified = true;
-			if(evt.altKey) {
-				trendLine.initialXValue = fp[0] - dx;
-				trendLine.initialValue = fp[1] - dy;
-			} else {
-				trendLine.initialXValue = pos1[0];
-				trendLine.initialValue = pos1[1];
-			}
-			trendLine.draw();
-		} else if(evt.ctrlKey === true) {
-			trendLine.modified = true;
-			if(evt.altKey) {
-				trendLine.finalXValue = fp[2] - dx;
-				trendLine.finalValue = fp[3] - dy;
-			} else {
-				trendLine.finalXValue = pos1[0];
-				trendLine.finalValue = pos1[1];
-			}
-			trendLine.draw();
-		} else {
-			graph.vars("last-cursor-moved", null);
-			graph.vars("previous-cursor-moved", null);
-			graph.vars("first-cursor-moved", null);
-		}
-		
-		if(trendLine.modified) {
-			graph.ud("#modified").setState(true);
-		}
-	},
-	mousedown(graph, trendLine, evt) {
-		
-	},
-	mouseup(graph, trendLine, evt) {
-		
-	}
-};
-const TrendLine_KeyUp_Handlers = {
-	Space(graph, trendLine, evt) {
-		var vars = graph.vars(["variables"]);
-		if(!vars.editor || !vars.editor.chart) return;
-		
-		var trendLines = vars.editor.chart.trendLines;
-		var selected = trendLines.selected;
-		var index = trendLines.indexOf(selected);
-		
-		if(index !== -1 && trendLines.length > 1) {
-			do {
-				if(evt.shiftKey) index--; else index++;
-				if(index < 0) index = trendLines.length - 1;
-				if(index > trendLines.length - 1) index = 0;
-			} while(!isEditableTrendLine(trendLines[index]));
-			trendLine = trendLines[index];
-		} else {
-			trendLine = trendLines.find(tl => isEditableTrendLine(tl) ? tl : null);
-		}
-
-		if(trendLines.selected !== trendLine) {
-			if(trendLines.selected) {
-				trendLines.selected.lineThickness = 1;
-				trendLines.selected.draw();
-			}
-			if((trendLines.selected = trendLine)) {
-				trendLines.selected.lineThickness = 3;
-				trendLines.selected.draw();
-			}
-		}
-	},
-	// Escape(graph, trendLine, evt) {
-	// 	var vars = graph.vars(["variables"]);
-	// 	if(!vars.editor || !vars.editor.chart) return;
-
-	// 	if(trendLine) {
-	// 		// ???
-	// 		var stage = vars.editor.stage, a;
-	// 		var original = stage.casagrande.trendLines[vars.editor.chart.trendLines.indexOf(trendLine)];
-	// 		js.mixIn(trendLine, original);
-	// 		trendLine.draw();
-	// 	} else {
-	// 		graph.ud("#cancel-changes").execute(evt);
-	// 	}
-	// },
-	// Enter(graph, trendLine, evt) {
-	// 	var vars = graph.vars(["variables"]);
-	// 	// if(vars.editor) {
-	// 	// 	vars.editor.stop(true);
-	// 	// 	delete vars.editor;
-	// 	// }
-	// 	graph.ud("#toggle-edit-graph").execute(evt);
-	// }
-};
-
-function TrendLineEditor(vars, stage, chart, owner) {
-
-	function click(evt) {
-		if(chart.trendLines.selected !== evt.trendLine) {
-			if(chart.trendLines.selected) {
-				chart.trendLines.selected.lineThickness = 1;
-				chart.trendLines.selected.draw();
-			}
-
-			chart.trendLines.selected = evt.trendLine;
-			
-			evt.trendLine.lineThickness = 3;
-			evt.trendLine.draw();
-		}
-	}
-
-	var originals = chart.trendLines.map(tl => ({
-		initialXValue: tl.initialXValue,
-		initialValue: tl.initialValue,
-		finalXValue: tl.finalXValue,
-		finalValue: tl.finalValue,
-		tl: tl
-	}));
-	var selected = chart.trendLines.selected;
-	var node = chart.node || owner.getNode().qs(".amcharts-main-div");
-
-	this.chart = chart;
-	this.stage = stage;
-	this.owner = owner;
-	this.stop = function(persist) {
-		var modified = false, points = [];
-		if(persist) {
-			if(owner._name === "graph_Isotachen_c") {
-				chart.trendLines.forEach((tl, index) => {
-					var type = "DEF";
-					if(tl && tl.modified) {
-						modified = true;
-						tl.lineThickness = 1;
-						tl.draw();
-			
-						var line = {
-							initialXValue: tl.initialXValue,
-							initialValue: tl.initialValue,
-							finalXValue: tl.finalXValue,
-							finalValue: tl.finalValue
-						};
-				
-						js.set(js.sf("overrides.isotachen.stage%d.lines.%s", stage.i, type), line, vars);
-					}
-				});
-				if(modified) {
-					stage.isotachen.update();
-				}
-			} else if(owner._name === "graph_Casagrande") {
-				chart.trendLines.forEach((tl, index) => {
-					var type = index === 0 ? "AB" : "DEF";
-					if(tl && tl.modified) {
-						modified = true;
-						tl.lineThickness = 1;
-						tl.draw();
-			
-						var line = {
-							initialXValue: tl.initialXValue,
-							initialValue: tl.initialValue,
-							finalXValue: tl.finalXValue,
-							finalValue: tl.finalValue
-						};
-				
-						js.set(js.sf("overrides.casagrande.stage%d.lines.%s", stage.i, type), line, vars);
-					}
-				});
-				if(modified) {
-					stage.casagrande.update();
-				}
-			} else if(owner._name === "graph_Taylor") {
-				chart.trendLines.forEach((tl, index) => {
-					var type = "Qq"; // lineaire fit
-					if(tl && tl.modified) {
-						modified = true;
-						tl.lineThickness = 1;
-						tl.draw();
-			
-						var line = {
-							initialXValue: tl.initialXValue,
-							initialValue: tl.initialValue,
-							finalXValue: tl.finalXValue,
-							finalValue: tl.finalValue 
-						};
-				
-						js.set(js.sf("overrides.taylor.stage%d.lines.%s", stage.i, type), line, vars);
-					}
-				});
-				if(modified) {
-					stage.taylor.update();
-				}
-			} else if(owner._name === "graph_Koppejan") {
-				chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
-					if(tl) {
-						modified = true;
-						tl.lineThickness = 1;
-						tl.draw();
-						points.push(
-							{ x: tl.initialXValue, y: tl.initialValue },
-							{ x: tl.finalXValue, y: tl.finalValue });
-					}
-				});
-				js.set("overrides.koppejan.points_pg", points, vars);
-				vars.koppejan.update();
-			} else {
-				var name = owner._name.substring("graph_".length).toLowerCase();
-				if(["bjerrum_e", "bjerrum_r", "isotachen"].indexOf(name) !== -1) {
-					chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
-						if(tl) {
-							modified = true;
-							tl.lineThickness = 1;
-							tl.draw();
-							points.push(
-								{ x: tl.initialXValue, y: tl.initialValue },
-								{ x: tl.finalXValue, y: tl.finalValue });
-						}
-					});
-					js.set(js.sf("overrides.%s.points_pg", name), points, vars);
-					if(modified) {
-						stage.update(name); // FIXME stage(0).updates
-					}
-				}
-			}
-			if(modified) {
-				vars.parameters.update();
-				owner.setState("invalidated", true);
-			}
-		} else {
-			originals.forEach(original => {
-				js.mixIn(original.tl, original);
-				delete original.tl.tl;
-				original.tl.draw();
-			});
-		}
-
-		delete chart.trendLines.selected;
-		node.classList.remove("editing");
-		
-		// owner.ud("#editing").setState(false);
-		owner.print("stop - TrendLineEditor", modified ? vars : "no changes");
-	};
-	this.handle = function(evt) {
-		var vars = owner.getParent().vars(), h, r;
-		var trendLine = chart.trendLines.selected;
-		
-		if(!trendLine) {
-			if(evt.type === "keyup") {
-				h = TrendLine_KeyUp_Handlers[evt.code];
-			}
-		} else if(evt.type === "click") {
-			if(chart.trendLines.selected) {
-				chart.trendLines.selected.lineThickness = 1;
-				chart.trendLines.selected.draw();
-				delete chart.trendLines.selected;
-			}
-		} else if(evt.type === "keyup") {
-			h = TrendLine_KeyUp_Handlers[evt.code];
-		} else if(evt.type.startsWith("mouse")) {
-			h = TrendLine_Mouse_Handlers[evt.type];
-			// graph.print(evt.type, {trendLine: trendLine, evt: evt, chart: trendLine.chart}); 
-		}
-		
-		if(h) {
-			r = h(owner, trendLine, evt);
-			if(trendLine && r !== false) trendLine.draw();
-		}
-	
-		return r;
-	};
-
-	chart.trendLines.filter(tl => isEditableTrendLine(tl)).forEach(tl => {
-		if(!tl.hooked) {
-			tl.hooked = true;
-			tl.addListener("click", click);
-		}
-		tl.lineThickness = 1;
-		tl.draw();
-		delete tl.modified; 
-	});
-	node.classList.add("editing");
-	vars.editing = node;
-	
-	owner.print("start - TrendLineEditor");
-}
-function handleTrendLineEvent(graph, trendLine, evt) {
-	var vars = graph._parent.vars(), h, r;
-	
-	if(!trendLine) {
-		if(evt.type === "keyup") {
-			h = TrendLine_KeyUp_Handlers[evt.code];
-		}
-	} else if(evt.type === "keyup") {
-		h = TrendLine_KeyUp_Handlers[evt.code];
-	} else if(evt.type.startsWith("mouse")) {
-		h = TrendLine_Mouse_Handlers[evt.type];
-	}
-	
-	if(h) {
-		r = h(graph, trendLine, evt);
-		if(trendLine && r !== false) trendLine.draw();
-	}
-
-	return r;
-}
-function cursorMoved(evt) { this.vars("last-cursor-moved", evt); }
-function isEditableTrendLine(tl) {
-	return tl.editable;
-	// return tl.dashLength === 0 && (tl.lineColor == "red" || tl.lineColor === "green");
-}
-
 ["", { 
 	handlers: handlers, 
 	vars: { 
@@ -1650,6 +1308,12 @@ function isEditableTrendLine(tl) {
 		setup() {
 			const vars = this.vars(["variables"]);
 			
+			((setup_settlement) => {
+				let adm = this.udr("#allow-disabling-measurements");
+				adm.vars("visible", false);
+				adm.toggle("visible"); adm.toggle("visible");
+			})();
+			
 			setup_casagrande(vars);
 			setup_taylor(vars);
 			setup_bjerrum(vars);
@@ -1657,12 +1321,6 @@ function isEditableTrendLine(tl) {
 			setup_koppejan(vars);
 			setup_stages_2(vars);
 			setup_parameters(this, vars, vars.headerValue);
-			
-	    	let adm = this.udr("#allow-disabling-measurements");
-	    	adm.vars("visible", false);
-	    	adm.toggle("visible");
-	    	adm.toggle("visible");
-			
 		}
 	}
 }, [
@@ -1680,49 +1338,6 @@ function isEditableTrendLine(tl) {
 			vars.koppejan.update();
 			vars.parameters.update();
 			this.ud("#graphs").getControls().map(c => c.render());
-    	}
-    }],
-    [("#toggle-edit-graph"), {
-    	selected: "state",
-    	state: false, 
-    	visible: false,
-    	on(evt) {
-			var vars = this.vars(["variables"]), am, node, chart;
-    		var graph = this.ud("#graphs > :visible[groupIndex=-1]"), state;
-    		var stage = evt && evt.component.vars("stage");
-
-    		am = (evt && evt.am) || graph.getNode().down(".amcharts-main-div");
-			if(stage === undefined) {
-				stage = Array.from(am.parentNode.parentNode.childNodes).indexOf(am.parentNode);
-			}
-			
-			/* get the stage being clicked */
-			chart = (graph.vars("am-" + stage) || graph.vars("am")).chart;
-
-			if(!(state = this.toggleState())) {
-				vars.editor && vars.editor.stop(true);
-				delete vars.editor;
-				this.ud("#popup-edit-graph-stage")._controls.forEach(c => c.setSelected("never"));
-				// stage = undefined;
-			} else {
-				vars.editor = new TrendLineEditor(vars, vars.stages[stage], chart, graph);
-				node = graph.getNode();
-				node.previous_scrollTop = node.scrollTop;
-				node.scrollTop = 0;
-				graph._parent.focus();
-	
-				// if(evt && !evt.am && stage !== undefined) {
-					// evt.component.print("nevering", evt);
-					// evt.component._parent._controls.forEach(c => c.setSelected(c === evt.component ? true : "never"));
-				// }
-				
-				if(stage !== undefined) {
-					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
-				}
-			}
-			
-			var multiple = getSelectedGraph(this).multiple;
-			this.ud("#panel-edit-graph").setVisible(this.getState() && !multiple);
     	}
     }],
 
@@ -1898,7 +1513,7 @@ function isEditableTrendLine(tl) {
 				} else if(mouse && vars.editing) {
 					var trendLine = vars.etl && vars.etl.chart.trendLines.selected;
 					if(trendLine) {
-						handleTrendLineEvent(evt.component, trendLine, evt);
+						GDS.TrendLine_handleEvent(evt.component, trendLine, evt);
 					}
 				}
 			}
@@ -1908,14 +1523,14 @@ function isEditableTrendLine(tl) {
 			if(!control || control.vars("rendering") === true) return;
 
 			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
-			handleTrendLineEvent(control, trendLine, evt);
+			GDS.TrendLine_handleEvent(control, trendLine, evt);
 		},
 		onKeyUp(evt) { 
 			var control = evt.component || require("vcl/Control").findByNode(evt.target);
 			if(!control || control.vars("rendering") === true) return;
 			
 			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
-			handleTrendLineEvent(control, trendLine, evt);
+			GDS.TrendLine_handleEvent(control, trendLine, evt);
 		}
 
 	}, [
