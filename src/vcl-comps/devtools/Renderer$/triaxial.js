@@ -97,18 +97,6 @@ function setup_stages_1(vars, sacosh) {
 			
 			return oc - ub;
 		})(),
-		// t100: (() => {
-		// 	// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231013-161656-iVa3bt.png
-		//     const x = "minutes_sqrt", y = "txVC";
-		// 	const stm = vars.stages.CO.measurements;
-		//     const ls = GDS.find_linear_segment(stm, x, y);
-		//     const max = GDS.maxOf({measurements: stm}, y);
-		
-		// 	ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
-		// 	ls.b = ls.start[y] - ls.m * ls.start[x];
-			
-		// 	return (max[y] - ls.b) / ls.m;
-		// })()
 	});
 	js.mi((vars.stages.CO), {
 		o_1: (() => {
@@ -262,13 +250,11 @@ function setup_stages_1(vars, sacosh) {
 
 }
 function setup_measurements(vars) {
-
 /*-
 	O = 2 pi r
 	A = pi r2
 	r = sqrt(A/pi)
 */
-
 	const Ac = js.get("stages.CO.A", vars);
 	const r = Math.sqrt(Ac / Math.PI);
 	const O = 2 * Math.PI * r;
@@ -490,6 +476,7 @@ function setup_stages_2(vars) {
 	js.mi((vars.stages.CO), {
 		cvT: (() => {
 			
+			// TODO based on whether filter paper is being used, the formula changes
 			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
 			
 			var c = 1.652;
@@ -497,8 +484,9 @@ function setup_stages_2(vars) {
 			var H = vars.H;
 			var t100 = vars.stages.CO.t100;
 			var f = 1 / (365.2 * 24 * 3600);
-			
-			return f * (c * D * D) / ((H/D) * (H/D) * t100 * t100); // m2/year
+			var lambda = (H/D) * (H/D);
+
+			return f * (c * D * D) / (lambda * t100 * t100); // m2/year
 		})(),
 		cvT_alt: (() => {
 			/*-	cv;20 = 0.848 * L2 * fT / t90x
@@ -515,15 +503,15 @@ function setup_stages_2(vars) {
 		})()
 	});
 	js.mi((vars.stages.CO), {
-		cvi: (() => {
+		// cvi: (() => {
 			
-			var D0 = vars.D;
-			var H0 = vars.H;
-			var t100 = Math.sqrt(3);
+		// 	var D0 = vars.D;
+		// 	var H0 = vars.H;
+		// 	var t100 = Math.sqrt(3);
 			
-			return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
+		// 	return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
 			
-		})(),
+		// })(),
 		mvT: (() => {
 			/*- mv = 1 / o'c * (dVc / V0) 
 			
@@ -1193,7 +1181,8 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
 			initialXValue: 0, initialValue: t_(0),
 			finalXValue: 300, finalValue: t_(300),
 			lineColor: "teal", lineAlpha: 0.95,
-			lineThickness: 3, dashLength: 2
+			lineThickness: 3, dashLength: 2,
+			editable: true
         }]
     });
     
@@ -1255,7 +1244,7 @@ function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryFie
         }));
         const trendLines = [], guides = [];
         
-        const colors = ["black", "red", "green"];
+        const colors = ["black", "red", "rgb(112,173,71)"];
         
         [1, 2, 3].forEach(i => {
         	const stm = stageMeasurements[i - 1];
@@ -1268,25 +1257,25 @@ function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryFie
 			
 			const t100 = (max[y] - ls.b) / ls.m;
             trendLines.push({
-				initialXValue: ls.start[x], initialValue: 0,
+				initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
 				finalXValue: ls.start[x], finalValue: 100,
 				lineColor: colors[i - 1], lineAlpha: 0.25,
 				dashLength: 2
             }, {
-				initialXValue: ls.end[x], initialValue: 0,
+				initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
 				finalXValue: ls.end[x], finalValue: 100,
 				lineColor: colors[i - 1], lineAlpha: 0.25,
 				dashLength: 2
             }, {
-				initialXValue: 0, initialValue: max[y],
+				initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
 				finalXValue: 100, finalValue: max[y],
 				lineColor: colors[i - 1], lineAlpha: 0.25,
 				dashLength: 2
             }, {
 		        initialXValue: -ls.b / ls.m, initialValue: 0,
 		        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
-		        lineColor: colors[i - 1], lineAlpha: 0.25,
-		        dashLength: 2
+		        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+		        // dashLength: 2
             // }, {
 		        // initialXValue: t100, initialValue: 0,
 		        // finalXValue: t100, finalValue: max[y] * 2,
@@ -1314,7 +1303,7 @@ function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryFie
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
+            colors: colors,
             trendLines: trendLines, 
             valueAxes: [{
                 id: "y1",
@@ -1349,14 +1338,14 @@ const GDSFotos = require("GDSFotos");
 /* Event Handlers */
 const handlers = {
 	'#panel-edit-graph > vcl/ui/Input onChange': function(evt) {
-		this.print("delegating to bar-user-inputs");
+		// this.print("delegating to bar-user-inputs");
 		this.ud("#bar-user-inputs").fire("onDispatchChildEvent", [evt.sender, "change", evt, null, arguments])
 	},
 	
 	'#bar-user-inputs onLoad'() { 
 		// this.print("onLoad");
 		this.nextTick(() => this.nodeNeeded());
-		// this.nextTick(() => this.ud("#refresh").execute());
+		this.nextTick(() => this.ud("#refresh").execute());
 	},
 	'#bar-user-inputs onNodeCreated'() {
 		// this.print("onNodeCreated");
@@ -1420,7 +1409,6 @@ const handlers = {
 		    		delete vars.stages.SH;
 		    		
 		    		var inputs = Object.fromEntries(this.qsa("< *")
-		    			.concat(this.ud("#panel-edit-graph").qsa("< * "))
 						.filter(c => (c instanceof Input) || (c instanceof Select))
 						.map(c => [c._name, c.getValue()]));
 						
@@ -1428,6 +1416,8 @@ const handlers = {
 
 					this.ud("#refresh").execute();
 					this.print("overrides", vars.overrides);
+					// this.print("vars", vars);
+		   // 		this.print("vars-equals", vars === this.vars(["variables"]));
 					
 					if(!blocked) {
 						modified.setState(true);
@@ -1499,7 +1489,6 @@ const handlers = {
 	    	locale("Graph:ShearStress.title.stage-F"), 
 	    	locale("Graph:ShearStress.title.stage-F"));
 	},
-	"#graph_Taylor cursor-moved": GDS.TrendLine_cursorMoved,
 	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
@@ -1548,6 +1537,11 @@ const handlers = {
 			st = 0; vars.stages.length && render();
 		}, 125);
 	},
+
+	// TODO refactor to onDispatchChildEvent of graphs, as well as in settlement-code
+	"#graph_VolumeChange cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_ShearStress cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Taylor cursor-moved": GDS.TrendLine.cursorMoved,
 	
 	'.-photo-placeholder tap'(evt) {
 		if(evt.target.classList.contains("fa-trash")) {
@@ -1557,24 +1551,24 @@ const handlers = {
 			this.removeVar("ddh-item");
 			this.removeVar("ddh-item-hash");
 			this.removeVar("vo:foto");
+			this.ud("#modified").setState(true);
 		} else {
 			const ddh = this.app().qs("DragDropHandler<>:root");
 			this.getParent().vars("photo-placeholder", this);
 			ddh.vars("input").click();
 		}
 	},
-	
 };
 
 [(""), {
 	onLoad() {
-		const group = this.qs("#group_fotos");
 		const ddh = this.app().qs("DragDropHandler<>:root");
+		const group = this.qs("#group_fotos");
 
 		this.override({
 			visibleChanged() {
 				const is = this.isVisible();
-				
+// TODO this should be refactored to Tabs<Document>
 				if(is && !this.vars("listeners")) {
 					this.vars("listeners", ddh.on({
 						'dragover': () => {
@@ -1604,6 +1598,7 @@ const handlers = {
 										el.syncClass("has-photo", !!img);
 									}
 								}))
+								.then(() => this.ud("#modified").setState(true))
 								.finally(() => {
 									GDSFotos.refresh(this);
 									group.removeClass("loading");
@@ -1620,14 +1615,17 @@ const handlers = {
 							// group.vars("photo-placeholder", null);
 						}
 					}));
-					this.print("START", this.vars("listeners"));
-					ddh.setEnabled(true);
-					ddh.vars("parentNode", group.getNode());
-					this.print("parentNode", ddh.vars("parentNode"));
+					// this.nextTick(() => { // allow STOP to be done first? not really necessary for the check on parentNode
+						ddh.setEnabled(true);
+						ddh.vars("parentNode", group.getNode());
+						this.print("START", this.vars("listeners"));
+					// });
 				} else if(!is && this.vars("listeners")) {
-					ddh.un(this.removeVar("listeners"));
-					this.print("STOPPED");
-					ddh.setEnabled(false);
+					if(ddh.vars("parentNode") === group.getNode()) {
+						ddh.un(this.removeVar("listeners"));
+						ddh.setEnabled(false);
+						this.print("STOPPED");
+					}
 				}
 				
 				return this.inherited(arguments);
@@ -1651,47 +1649,49 @@ const handlers = {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
 			const sacosh = {SA: n - 3, CO: n - 2, SH: n - 1};
 
-			var disabled = js.get("overrides.measurements-disabled", vars) || [];
-			disabled.forEach(index => vars.measurements[index].disabled = true);
-			
-			const drainSidesUsed = vars.headerValue("Side Drains Used") === "y";
-			const membraneUsed = vars.headerValue("Membrane Thickness") !== undefined;
-
-			this.qsa(":vars(filterpaper)").set("visible", drainSidesUsed);
-			this.qsa(":vars(membrane)").set("visible", membraneUsed);
-
-			var inputs = js.get("overrides.inputs", vars);
-			var bar = this.ud("#bar-user-inputs");
-			bar.setEnabled(false);
-			for(var k in inputs) {
-				if(!k.startsWith("select-sample-")) {
-					var c = this.qs("#" + k);
-					if(c && c.setValue) {
-						c.setValue(inputs[k]);
+			// ((setup_triaxial_code) => {
+				var disabled = js.get("overrides.measurements-disabled", vars) || [];
+				disabled.forEach(index => vars.measurements[index].disabled = true);
+				
+				const drainSidesUsed = vars.headerValue("Side Drains Used") === "y";
+				const membraneUsed = vars.headerValue("Membrane Thickness") !== undefined;
+	
+				this.qsa(":vars(filterpaper)").set("visible", drainSidesUsed);
+				this.qsa(":vars(membrane)").set("visible", membraneUsed);
+	
+				var inputs = js.get("overrides.inputs", vars);
+				var bar = this.ud("#bar-user-inputs");
+				bar.setEnabled(false);
+				for(var k in inputs) {
+					if(!k.startsWith("select-sample-")) {
+						var c = this.qs("#" + k);
+						if(c && c.setValue) {
+							c.setValue(inputs[k]);
+						}
 					}
 				}
-			}
-			bar.update(() => bar.setEnabled(true));
-
-			["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
-				.forEach(key => {
-					vars[key] = parseFloat(this.ud("#input-" + key).getValue())
-				});
-				
-			if(!Object.keys(sacosh).every(k => {
-				if(isNaN(sacosh[k] = parseInt(this.ud("#select-stage-" + k).getValue(), 10))) {
-
-					vars.parameters = [];
-					vars.categories = [];
+				bar.update(() => bar.setEnabled(true));
+	
+				["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
+					.forEach(key => {
+						vars[key] = parseFloat(this.ud("#input-" + key).getValue())
+					});
 					
-					// this.print("cleared parameters & categories");
-
-					return false;
-				}
-				return true;
-			})) return this.ud("#bar-user-inputs").render();
-			
-			sacosh.type = this.ud("#input-CO-type").getValue();
+				if(!Object.keys(sacosh).every(k => {
+					if(isNaN(sacosh[k] = parseInt(this.ud("#select-stage-" + k).getValue(), 10))) {
+	
+						vars.parameters = [];
+						vars.categories = [];
+						
+						// this.print("cleared parameters & categories");
+	
+						return false;
+					}
+					return true;
+				})) return this.ud("#bar-user-inputs").render();
+				
+				sacosh.type = this.ud("#input-CO-type").getValue();
+			// })();
 			
 			// setup_casagrande(vars);
 			setup_taylor(vars);
@@ -1919,7 +1919,6 @@ const handlers = {
     			vars.overrides = evt.overrides;
     		} else {
     			if(!vars.overrides) return;
-    			delete vars.overrides;
     		}
 
 			this.ud("#graphs").getControls().map(c => c.render());
@@ -1932,10 +1931,11 @@ const handlers = {
     		"": "border: 1px dashed silver; text-align: center;",
     		"*:not(.{Group}):not(.overflow_handler)": "display: inline-block; margin: 2px;",
     		".{Input}:not(.{Checkbox})": "max-width: 40px; _font-weight:bold;",
-    		'.{Select}': "_font-weight:bold;"
+    		'.{Select}': "_font-weight:bold;",
+    		'>.{Group}': "display: block;"
     	}
     }, [
-    	["vcl/ui/Group", { css: "display: block;" }, [
+    	["vcl/ui/Group", [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
 	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(0,0,0); background-color: rgba(0,0,0,0.05);" }],
 	    	["vcl/ui/Element", { content: locale("Sample") + " 2:" }],
@@ -1953,7 +1953,7 @@ const handlers = {
 	    		content: "<i class='fa fa-refresh'></i>" 
 	    	}]
 	    ]],
-	    ["vcl/ui/Group", { css: "display: block;" }, [
+	    ["vcl/ui/Group", [
 	    	["vcl/ui/Element", { content: locale("Stage#SA") + ":" }],
 	    	["vcl/ui/Select", ("select-stage-SA"), { }],
 	    	["vcl/ui/Element", { content: locale("Stage#CO") + ":" }],
@@ -1961,7 +1961,7 @@ const handlers = {
 	    	["vcl/ui/Element", { content: locale("Stage#SH") + ":" }],
 	    	["vcl/ui/Select", ("select-stage-SH"), { }]
 	    ]],
-    	["vcl/ui/Group", { css: "display: block;" }, [
+    	["vcl/ui/Group", [
 	    	["vcl/ui/Element", { 
 	    		content: locale("Consolidation-type") + ":",
 	    		// hint: locale("Consolidation-type")
@@ -2012,7 +2012,7 @@ const handlers = {
 	    		}
 	    	}]
 	    ]],
-    	["vcl/ui/Group", { css: "display: block;" }, [
+    	["vcl/ui/Group", [
 	    	["vcl/ui/Element", { 
 	    		content: locale("FilterPaper-loadCarried") + ":",
 	    		vars: { filterpaper: 1 }
@@ -2118,32 +2118,33 @@ const handlers = {
 
 	[("#tabs-graphs"), {
 		onChange(newTab, curTab) {
-			this.ud("#panel-edit-graph").setVisible(newTab.vars("panel-edit-graph-visible") === true)
+			const teg = this.ud("#toggle-edit-graph")
+			teg.setVisible(newTab.vars("can-edit") === true);
+			if(teg.getState() === true) {
+				// commits pending changes
+				teg.execute();
+			}
 		}
 	}, [
-
-		["vcl/ui/Tab", { text: locale("Graph:VolumeChange"), control: "graph_VolumeChange" }],
+		["vcl/ui/Tab", { text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true } }],
 		["vcl/ui/Tab", { text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation" }],
 		["vcl/ui/Tab", { text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress" }],
 		["vcl/ui/Tab", { text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure" }],
 		["vcl/ui/Tab", { text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio" }],
 		["vcl/ui/Tab", { text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ" }],
-		["vcl/ui/Tab", { text: locale("Graph:ShearStress"), control: "graph_ShearStress" }],
+		["vcl/ui/Tab", { text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true } }],
 		["vcl/ui/Tab", { text: locale("Graph:Taylor"), control: "graph_Taylor", visible: false }],
 
-		["vcl/ui/Bar", ("menubar"), {
-			align: "right", autoSize: "both", classes: "nested-in-tabs",
-			css: "display:none;"
-		}, [
+		["vcl/ui/Bar", ("menubar"), { align: "right", autoSize: "both", classes: "nested-in-tabs" }, [
 			["vcl/ui/Button", ("button-edit-graph"), { 
 				action: "toggle-edit-graph",
 				classes: "_right", content: "Lijnen muteren"
 			}],
-			["vcl/ui/PopupButton", ("button-edit-graph-stage"), { 
-				action: "edit-graph-stage", classes: "_right", origin: "bottom-right",
-				content: "Lijnen muteren <i class='fa fa-chevron-down'></i>",
-				popup: "popup-edit-graph-stage"
-			}]	
+			// ["vcl/ui/PopupButton", ("button-edit-graph-stage"), { 
+			// 	action: "edit-graph-stage", classes: "_right", origin: "bottom-right",
+			// 	content: "Lijnen muteren <i class='fa fa-chevron-down'></i>",
+			// 	popup: "popup-edit-graph-stage"
+			// }]	
 		]]
 	]],
 	[("#graphs"), { }, [

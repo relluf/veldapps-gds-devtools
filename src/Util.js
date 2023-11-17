@@ -272,10 +272,18 @@ define(["locale"], Util => {
 			if(trendLines.selected !== trendLine) {
 				if(trendLines.selected) {
 					trendLines.selected.lineThickness = 1;
+					trendLines.selected.dashLength = trendLines.selected.dashLength_;
+					trendLines.selected.lineColor = trendLines.selected.lineColor_;
+					trendLines.selected.lineAlpha = trendLines.selected.lineAlpha_;
 					trendLines.selected.draw();
 				}
 				if((trendLines.selected = trendLine)) {
 					trendLines.selected.lineThickness = 3;
+					trendLines.selected.lineColor_ = trendLines.selected.lineColor;
+					trendLines.selected.lineAlpha_ = trendLines.selected.lineAlpha;
+					// trendLines.selected.lineColor = "purple";
+					trendLines.selected.dashLength = 0;
+					trendLines.selected.lineAlpha = 1;
 					trendLines.selected.draw();
 				}
 			}
@@ -1669,9 +1677,21 @@ function calc_dH(vars, stage) {
 		find_linear_segment: find_linear_segment,
 		find_linear_segment_tolerance: 0.01,
 
-		TrendLine_cursorMoved: cursorMoved, // TODO
-		TrendLine_Mouse_Handlers: TrendLine_Mouse_Handlers,
-		TrendLine_KeyUp_Handlers: TrendLine_KeyUp_Handlers,
+		TrendLineEditor: TrendLineEditor,
+
+		// TrendLine_cursorMoved: cursorMoved, // TODO
+		// TrendLine_Mouse_Handlers: TrendLine_Mouse_Handlers,
+		// TrendLine_KeyUp_Handlers: TrendLine_KeyUp_Handlers,
+		// TrendLine_handleEvent: handleTrendLineEvent,
+		// TrendLine_isEditable: isEditableTrendLine,
+
+		TrendLine: {
+			Mouse_Handlers: TrendLine_Mouse_Handlers,
+			KeyUp_Handlers: TrendLine_KeyUp_Handlers,
+			handleEvent: handleTrendLineEvent,
+			cursorMoved: cursorMoved, // TODO
+			isEditable: isEditableTrendLine
+		},
 
 		setup_measurements_1: setup_measurements_1,
 		setup_variables_1: setup_variables_1,

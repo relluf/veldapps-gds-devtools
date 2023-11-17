@@ -144,8 +144,6 @@ function getSelectedGraph(cmp) {
 /* Event Handlers */
 const handlers = {
 	/* Event Handlers */
-	// 'loaded'() { this.print("Util", Util); },
-	
 	"#tabs-sections onChange": function tabs_change(newTab, curTab) {
 		this.ud("#bar").setVisible(newTab && (newTab.vars("bar-hidden") !== true));
 	},
@@ -154,7 +152,7 @@ const handlers = {
 		var state = teg.getState();
 	
 		if(state === true) {
-			// commit pending changes
+			// commits pending changes
 			teg.execute();
 		}
 		
@@ -192,13 +190,13 @@ const handlers = {
 			}
 		}, 750);
 	},
-	"#graph_Casagrande cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Taylor cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Bjerrum_e cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Bjerrum_r cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Isotachen cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Isotachen_c cursor-moved": GDS.TrendLine_cursorMoved,
-	"#graph_Koppejan cursor-moved": GDS.TrendLine_cursorMoved,
+	"#graph_Casagrande cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Taylor cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Bjerrum_e cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Bjerrum_r cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Isotachen cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Isotachen_c cursor-moved": GDS.TrendLine.cursorMoved,
+	"#graph_Koppejan cursor-moved": GDS.TrendLine.cursorMoved,
 
 	"#graph_Casagrande onRender"() {
 		this.setTimeout("render", () => {
@@ -1324,7 +1322,6 @@ function koppejan_variables(vars) {
 		}
 	}
 }, [
-	
     [("#reflect-overrides"), {
     	on(evt) {
     		var vars = this.vars(["variables"]);
@@ -1340,7 +1337,6 @@ function koppejan_variables(vars) {
 			this.ud("#graphs").getControls().map(c => c.render());
     	}
     }],
-
     [("#options"), [
         ["vcl/ui/Group", ("group_title"), {}, [
             ["vcl/ui/Element", {
@@ -1443,7 +1439,6 @@ function koppejan_variables(vars) {
 			]]
 		]]
     ]],
-
 	[("#tabs-graphs"), [
 		["vcl/ui/Tab", { text: "Casagrande", control: "graph_Casagrande", selected: true, vars: { multiple: true } }],
 		["vcl/ui/Tab", { text: "Taylor", control: "graph_Taylor", selected: !true, vars: { multiple: true } }],
@@ -1466,74 +1461,7 @@ function koppejan_variables(vars) {
 			}]	
 		]]
 	]],
-	[("#graphs"), { 
-
-		onDispatchChildEvent(child, name, evt, f, args) {
-			var mouse = name.startsWith("mouse");
-			var click = !mouse && name.endsWith("click");
-			var vars = this.vars(["variables"]), am, stage, control, method, chart;
-
-			if(click || mouse) {
-				am = evt.target.up(".amcharts-main-div", true);
-				if(!am) return;
-
-				control = evt.component || require("vcl/Control").findByNode(am);
-				if(!control || control.vars("rendering") === true) return;
-				
-				var stages = vars.stages;
-				if(vars.editing) {
-					if(!vars.editing.parentNode) {
-						delete vars.editing;
-					} else {
-						stage = Array.from(vars.editing.parentNode.childNodes).indexOf(vars.editing);
-					}
-				}
-				if(name === "click") {
-					/* focus, clear overrides */
-					if(stage !== undefined) {
-						chart = (control.vars("am-" + stage) || control.vars("am")).chart;
-						var trendLines = chart.trendLines;
-						if(trendLines.selected) {
-							trendLines.selected.lineThickness = 1;
-							trendLines.selected.draw();
-							delete trendLines.selected;
-						}
-					}
-					this.focus();
-					
-					if(vars.editor) {
-						vars.editor.handle(evt);
-					}
-						
-				} else if(name === "dblclick") {
-					evt.am = am;
-					this.ud("#toggle-edit-graph").execute(evt);
-				} else if(vars.editor) {
-					vars.editor.handle(evt);
-				} else if(mouse && vars.editing) {
-					var trendLine = vars.etl && vars.etl.chart.trendLines.selected;
-					if(trendLine) {
-						GDS.TrendLine_handleEvent(evt.component, trendLine, evt);
-					}
-				}
-			}
-		},
-		onKeyDown(evt) { 
-			var control = evt.component || require("vcl/Control").findByNode(evt.target);
-			if(!control || control.vars("rendering") === true) return;
-
-			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
-			GDS.TrendLine_handleEvent(control, trendLine, evt);
-		},
-		onKeyUp(evt) { 
-			var control = evt.component || require("vcl/Control").findByNode(evt.target);
-			if(!control || control.vars("rendering") === true) return;
-			
-			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
-			GDS.TrendLine_handleEvent(control, trendLine, evt);
-		}
-
-	}, [
+	[("#graphs"), { }, [
 		["vcl/ui/Panel", ("graph_Casagrande"), {
 			align: "client", visible: false, classes: "multiple"
 		}],

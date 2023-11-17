@@ -177,12 +177,6 @@ const handlers = {
 				node.previous_scrollTop = node.scrollTop;
 				node.scrollTop = 0;
 				graph._parent.focus();
-	
-				// if(evt && !evt.am && stage !== undefined) {
-					// evt.component.print("nevering", evt);
-					// evt.component._parent._controls.forEach(c => c.setSelected(c === evt.component ? true : "never"));
-				// }
-				
 				if(stage !== undefined) {
 					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
 				}
@@ -227,15 +221,15 @@ function getSelectedGraph(cmp) {
     ["vcl/Action", ("persist-changes"), {
     	parent: "modified",
     	visible: "parent",
-    	on() {
-    		/* overridden in eg. Tabs<Document> */
-    		alert("LET OP: Niet geimplementeerd!");
-    	}
+    	onExecute() {
+			/* overridden in eg. Tabs<Document> */
+			alert(js.sf("onExecute for %n has not been implemented.", this));
+		}
     }],
     ["vcl/Action", ("cancel-changes"), {
     	parent: "modified",
     	visible: "parent",
-    	on() {
+    	onExecute() {
 			if(confirm("LET OP: Alle wijzigingen zullen verloren gaan.\n\nWeet u zeker dat u wilt annuleren?")) {
 				// this.ud("#editing").setState(false);
 				this.ud("#toggle-edit-graph").execute();
@@ -260,7 +254,74 @@ function getSelectedGraph(cmp) {
 	
 	["vcl/ui/Tabs", ("tabs-graphs"), {}, []],
 	["vcl/ui/Panel", ("graphs"), { 
-		align: "client", css: css, tabIndex: 1
+		align: "client", css: css, tabIndex: 1,
+		
+		onDispatchChildEvent(child, name, evt, f, args) {
+			var mouse = name.startsWith("mouse");
+			var click = !mouse && name.endsWith("click");
+			var vars = this.vars(["variables"]), am, stage, control, method, chart;
+
+			if(click || mouse) {
+				am = evt.target.up(".amcharts-main-div", true);
+				if(!am) return;
+
+				control = evt.component || require("vcl/Control").findByNode(am);
+				if(!control || control.vars("rendering") === true) return;
+				
+				var stages = vars.stages;
+				if(vars.editing) {
+					if(!vars.editing.parentNode) {
+						delete vars.editing;
+					} else {
+						stage = Array.from(vars.editing.parentNode.childNodes).indexOf(vars.editing);
+					}
+				}
+				if(name === "click") {
+					/* focus, clear overrides */
+					if(stage !== undefined) {
+						chart = (control.vars("am-" + stage) || control.vars("am")).chart;
+						var trendLines = chart.trendLines;
+						if(trendLines.selected) {
+							trendLines.selected.lineThickness = 1;
+							trendLines.selected.draw();
+							delete trendLines.selected;
+						}
+					}
+					this.focus();
+					
+					if(vars.editor) {
+						vars.editor.handle(evt);
+					}
+						
+				} else if(name === "dblclick") {
+					evt.am = am;
+					this.ud("#toggle-edit-graph").execute(evt);
+				} else if(vars.editor) {
+					vars.editor.handle(evt);
+				} else if(mouse && vars.editing) {
+					var trendLine = vars.etl && vars.etl.chart.trendLines.selected;
+					if(trendLine) {
+						GDS.TrendLine.handleEvent(evt.component, trendLine, evt);
+					}
+				}
+			}
+		},
+		onKeyDown(evt) { 
+			var control = evt.component || require("vcl/Control").findByNode(evt.target);
+			if(!control || control.vars("rendering") === true) return;
+
+			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
+			GDS.TrendLine.handleEvent(control, trendLine, evt);
+		},
+		onKeyUp(evt) { 
+			var control = evt.component || require("vcl/Control").findByNode(evt.target);
+			if(!control || control.vars("rendering") === true) return;
+			
+			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
+			GDS.TrendLine.handleEvent(control, trendLine, evt);
+		}
+
+		
 	}, [
 		["vcl/ui/Panel", ("panel-edit-graph"), {
 			align: "top", autoSize: "height", groupIndex: 1,
