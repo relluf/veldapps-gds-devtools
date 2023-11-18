@@ -1,6 +1,6 @@
 define(["locale"], Util => {
 
-// TODO The name of this module should be at least be GDS-related
+// TODO The name of this module is not great
 
 	const locale = window.locale.prefixed("devtools:Renderer:gds:");
 	
@@ -1677,15 +1677,8 @@ function calc_dH(vars, stage) {
 		find_linear_segment: find_linear_segment,
 		find_linear_segment_tolerance: 0.01,
 
-		TrendLineEditor: TrendLineEditor,
-
-		// TrendLine_cursorMoved: cursorMoved, // TODO
-		// TrendLine_Mouse_Handlers: TrendLine_Mouse_Handlers,
-		// TrendLine_KeyUp_Handlers: TrendLine_KeyUp_Handlers,
-		// TrendLine_handleEvent: handleTrendLineEvent,
-		// TrendLine_isEditable: isEditableTrendLine,
-
 		TrendLine: {
+			Editor: TrendLineEditor,
 			Mouse_Handlers: TrendLine_Mouse_Handlers,
 			KeyUp_Handlers: TrendLine_KeyUp_Handlers,
 			handleEvent: handleTrendLineEvent,

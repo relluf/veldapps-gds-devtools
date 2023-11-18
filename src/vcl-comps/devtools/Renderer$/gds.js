@@ -172,7 +172,7 @@ const handlers = {
 				this.ud("#popup-edit-graph-stage")._controls.forEach(c => c.setSelected("never"));
 				// stage = undefined;
 			} else {
-				vars.editor = new GDS.TrendLineEditor(vars, vars.stages[stage], chart, graph);
+				vars.editor = new GDS.TrendLine.Editor(vars, vars.stages[stage], chart, graph);
 				node = graph.getNode();
 				node.previous_scrollTop = node.scrollTop;
 				node.scrollTop = 0;

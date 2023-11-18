@@ -600,105 +600,6 @@ const handlers = {
 	}
 };
 
-/* Math-like (can be refactored to GDS.xxx()) */
-function line_intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-    var ua, ub, denom = (y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1);
-    if (denom === 0) {
-        return null;
-    }
-    ua = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3))/denom;
-    ub = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3))/denom;
-    return {
-        x: x1 + ua * (x2 - x1),
-        y: y1 + ub * (y2 - y1),
-        seg1: ua >= 0 && ua <= 1,
-        seg2: ub >= 0 && ub <= 1
-    };
-}
-function log_line_intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-/*- find intersection in logarithimic-plane, straight line on log-scale? 
-	>> N = b * g ^ t; (https://www.youtube.com/watch?v=i3jbTrJMnKs) */
-
-/*- (t1,N1), (t2,N2) => g1, b1 */
-	var t1 = y1, N1 = x1;
-	var t2 = y2, N2 = x2;
-	var dt1 = t2 - t1;
-	var g1 = Math.pow(N2 / N1, 1 / dt1);
-	var b1 = N1 / Math.pow(g1, t1);
-
-/*- (t3,N3), (t4,N4) => g2, b2 */
-	var t3 = y3, N3 = x3;
-	var t4 = y4, N4 = x4;
-	var dt2 = t4 - t3;
-	var g2 = Math.pow(N4 / N3, 1 / dt2);
-	var b2 = N3 / Math.pow(g2, t3);
-
-/*- TODO find where (b1 * g1 ^ t) === (b2 * g2 ^ t) - for now cheating? */
-	var ts = [], delta;
-	if(t1 > t4) {
-		t1 = [t4, t1];
-		t4 = t1.pop();
-		t1 = t1.pop();
-	}
-
-	// >>  b1/b2 * g1 ^ t1 = g2 ^ t2 => WHERE t1 = t2 //=> a * b^x = c^x
-	
-	/*- TODO cheating part -> refactor to some sort of bubble sort mechanism? */
-	for(var t = t1; t < t4; t += (t4 - t1) / 5000) {
-		var obj = { t: t, N1: b1 * Math.pow(g1, t),  N2: b2 * Math.pow(g2, t) };
-		if((obj.delta = Math.abs(obj.N2 - obj.N1)) < delta || delta === undefined) {
-			delta = obj.delta;
-			ts.unshift(obj);
-		}
-	}
-	if(ts.length === 0) ts = [{}];
-
-	return {
-		sN1N2: {x: ts[0].N1, y: ts[0].t}, ts: ts,
-		t1: t1, t2: t2, N1: N1, N2: N2, dt1: dt1, g1: g1, b1: b1,
-		t3: t3, t4: t4, N3: N3, N4: N4, dt2: dt2, g2: g2, b2: b2
-	};
-}
-function log_line_calc(N1, N2, t1, t2) {
-	/*- straight line on log-scale? >> N = b * g ^ t; (https://www.youtube.com/watch?v=i3jbTrJMnKs) 
-		(t1,N1), (t2,N2) => g1, b1  >>> t = Math.log(N / b) / Math.log(g); */
-	var dt = t2 - t1;
-	var g = Math.pow(N2 / N1, 1 / dt);
-	var b = N1 / Math.pow(g, t1);
-	
-	return {b: b, g: g, N1: N1, N2: N2, t1: t1, t2: t2, dt: dt, dt_1: 1/dt };
-} 
-function calc_derivatives(measurements, y, x) {
-	/*- assumes x and y attributes and a logarithmic scale along the X-axis */
-	y = y || "y";
-	x = x || "x";
-	
-	var prev1, next1, next2, prev2, dt;
-	measurements.forEach((current, idx, arr) => {
-		next1 = arr[idx + 1];
-		next2 = arr[idx + 2];
-		if(prev1 && next1) {
-			
-			dt = Math.log10(next1[x] / current[x]);
-			// dt = Math.log(next1[x] / current[x]);
-
-			current[y + "'"] = (next1[y] - prev1[y]) / (2*dt);
-			current[y + "''"] = (next1[y] - (2 * current[y]) + prev1[y]) / (dt*dt);
-			current[y + "'''"] = (next2 && prev2) && (next2[y] - 2*next1[y] + 2*prev1[y] - prev2[y]) / 2*(dt*dt*dt);
-
-			current["d" + y] = current[y] - prev1[y];
-			current["d" + y + "'"] = current[y + "'"] - prev1[y + "'"];
-			current["d" + y + "''"] = current[y + "''"] - prev1[y + "''"];
-			current["d" + y + "'''"] = current[y + "'''"] - prev1[y + "'''"];
-		}
-		prev2 = prev1;
-		prev1 = current;
-	});
-}
-function calc_T(d50, dA, dB, tA, tB) {
-	return Math.pow(10, ((d50 - dA) / (dB - dA)) * Math.log10(tB / tA) + Math.log10(tA));
-}
-
 /* Setup (must be called in same order) */
 function setup_casagrande(vars) {
 	return GDS.setup_casagrande(vars);
@@ -864,12 +765,12 @@ function setup_koppejan(vars) {
 		});
 		if((points = js.get("overrides.koppejan.points_pg", vars))) {
 			points.forEach(m => { m.y_koppejan = m.y; });
-			LLi_1 = log_line_intersect(
+			LLi_1 = GDS.log_line_intersect(
 					points[0].x, points[0].y_koppejan, points[1].x, points[1].y_koppejan, 
 					points[2].x, points[2].y_koppejan, points[3].x, points[3].y_koppejan);
 		} else {
 			serie2.forEach(m => m.y = (m.y_koppejan = m[GDS.key_d])); // reset
-			LLi_1 = log_line_intersect(
+			LLi_1 = GDS.log_line_intersect(
 					serie2[0].x2, serie2[0].y_koppejan, serie2[1].x2, serie2[1].y_koppejan, 
 					serie2[2].x2, serie2[2].y_koppejan, serie2[3].x2, serie2[3].y_koppejan);
 		}
