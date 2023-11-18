@@ -476,7 +476,6 @@ function setup_stages_2(vars) {
 	js.mi((vars.stages.CO), {
 		cvT: (() => {
 			
-			// TODO based on whether filter paper is being used, the formula changes
 			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
 			
 			var c = 1.652;
@@ -484,7 +483,10 @@ function setup_stages_2(vars) {
 			var H = vars.H;
 			var t100 = vars.stages.CO.t100;
 			var f = 1 / (365.2 * 24 * 3600);
-			var lambda = (H/D) * (H/D);
+			
+			// TODO based on whether filter paper is being used, the lambda changes
+			var fp = false, r = H/D;
+			var lambda = fp ? 4 * (1 + 2*r) * (1 + 2*r) : r * r;
 
 			return f * (c * D * D) / (lambda * t100 * t100); // m2/year
 		})(),
@@ -1615,16 +1617,16 @@ const handlers = {
 							// group.vars("photo-placeholder", null);
 						}
 					}));
-					// this.nextTick(() => { // allow STOP to be done first? not really necessary for the check on parentNode
+					this.nextTick(() => { // allow STOP to be done first? not really necessary for the check on parentNode
 						ddh.setEnabled(true);
 						ddh.vars("parentNode", group.getNode());
-						this.print("START", this.vars("listeners"));
-					// });
+						// this.print("START", this.vars("listeners"));
+					});
 				} else if(!is && this.vars("listeners")) {
 					if(ddh.vars("parentNode") === group.getNode()) {
 						ddh.un(this.removeVar("listeners"));
 						ddh.setEnabled(false);
-						this.print("STOPPED");
+						// this.print("STOPPED");
 					}
 				}
 				
