@@ -1658,6 +1658,8 @@ function calc_dH(vars, stage) {
 		key_st: key_st, 
 		treatZeroAs: treatZeroAs,
 		
+		colors: ["black", "red", "rgb(112,173,71)"],
+		
 		cp: cp,
 		parseValue: parseValue,
 		removeQuotes: removeQuotes,
@@ -1754,7 +1756,6 @@ function calc_dH(vars, stage) {
 		indexOfStage: (stages, stageN) => {
 			return stages.findIndex(stage => Util.valueOf(stage.measurements[0], key_s) === stageN);
 		}
-
 	});
 
 });

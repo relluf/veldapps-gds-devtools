@@ -1025,7 +1025,7 @@ function makeChart(c, opts) {
 	}
 	opts.immediate ? render.apply(c, [opts || {}]) : c.nextTick(() => render.apply(c, [opts || {}]));
 }
-function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true, time_key = GDS.key_t) {
+function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true, time_key = GDS.key_t, opts = {}) {
 /*-
 	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
 	- `seriesTitle` is a string that represents the title of the chart series.
@@ -1034,6 +1034,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	- `categoryField` is a string that specifies the field used for the categories in the chart.
 	- `selected` (string) indicates which stage is selected (SA, CO or SH)
 	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
+	- `opts`
 */
 	var sampleMeasurements_ = getSampleMeasurements(this, vars);
 	if(!sampleMeasurements_) return;
@@ -1069,6 +1070,13 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	const stageMeasurements = vars.stages.map((st, i) => all
 			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
 			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
+			
+	if(typeof opts === "function") {
+		opts = opts({
+			sampleMeasurements: sampleMeasurements, 
+			stageMeasurements: stageMeasurements
+		});
+	}
 
     const render = () => {
         const stage = render_stages[st];
@@ -1078,6 +1086,8 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
             valueField: valueField + (i + 1),
             categoryField: categoryField + (i + 1),
         }));
+        const extopt = (path, def) => js.mi(def, js.get(path, opts) || {});
+        
         this.vars("am", {
             series: series,
             stage: stage,
@@ -1088,18 +1098,22 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
-            valueAxes: [{
-                id: "y1",
-                position: "left",
-                reversed: reversed,
-            }, {
-                id: "x1",
-                position: "bottom",
-                title: js.sf(valueAxisTitle, selected),
-                logarithmic: logarithmic,
-                treatZeroAs: GDS.treatZeroAs
-            }]
+            colors: GDS.colors,
+            trendLines: opts.trendLines || [],
+            valueAxes: [
+            	extopt("valueAxes.y1", {
+	                id: "y1",
+	                position: "left",
+	                reversed: reversed
+	            }), 
+	            extopt("valueAxes.x1", {
+	                id: "x1",
+	                position: "bottom",
+	                title: js.sf(valueAxisTitle, selected),
+	                logarithmic: logarithmic,
+	                treatZeroAs: GDS.treatZeroAs
+	            })
+	         ]
         });
         
 		this.getChildNode(st).qs("svg")._description = series[0].title;
@@ -1115,7 +1129,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     var st = 0;
     render_stages.length && render();
 }
-function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
+function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
 /*-
 	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
 	- `seriesTitle` is a string that represents the title of the chart series.
@@ -1190,149 +1204,6 @@ function renderMohrCircles(vars, seriesTitle, valueAxisTitle) {
     
 	this.getNode().qs("svg")._description = series[0].title;
     
-}
-function renderChartL(vars, seriesTitle, valueAxisTitle, valueField, categoryField, selected, logarithmic = false, reversed = true, time_key = GDS.key_t) {
-/*-
-	- `vars` is an object that contains various variables, including an array of stages (`vars.stages`) to iterate over.
-	- `seriesTitle` is a string that represents the title of the chart series.
-	- `valueAxisTitle` is a string that represents the title of the value axis of the chart.
-	- `valueField` is a string that specifies the field used for the values in the chart.
-	- `categoryField` is a string that specifies the field used for the categories in the chart.
-	- `selected` (string) indicates which stage is selected (SA, CO or SH)
-	- `logarithmic` is an optional boolean parameter that indicates whether the value axis should use a logarithmic scale. It defaults to `false`.
-*/
-	var sampleMeasurements_ = getSampleMeasurements(this, vars);
-	if(!sampleMeasurements_) return;
-
-	const sampleMeasurements = [
-    	js.$[this.ud("#select-sample-1").getValue()], 
-    	js.$[this.ud("#select-sample-2").getValue()], 
-    	js.$[this.ud("#select-sample-3").getValue()]
-    ]
-    	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected))
-    	.map(stage => stage.measurements);
-
-    var content = ["<div><img src='/shared/vcl/images/loading.gif'></div>"];
-    var render_stages = [vars.stages[selected]];
-    this._node.innerHTML = content.join("");
-    this.vars("rendering", true);
-
-    const index = {};
-    sampleMeasurements.forEach((arr, i) => {
-    	return arr.forEach(mt_s => {
-    		let s = GDS.valueOf(mt_s, time_key);
-    		let mt_d = index[s] = index[s] || {};
-    		
-    		mt_d['mt_' + (i + 1)] = mt_s;
-    		mt_d[valueField + (i + 1)] = mt_s[valueField];
-    		// mt_d[categoryField] = mt_s[categoryField];
-    		mt_d[categoryField + (i + 1)] = mt_s[categoryField];
-    	});
-    });
-
-	const remove = false; //this.ud("#input-removeInvalidMts").getValue(); disabled for now
-	const all = Object.keys(index).map(key => index[key]);
-	const stageMeasurements = vars.stages.map((st, i) => all
-			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
-			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
-
-    const render = () => {
-        const stage = render_stages[st];
-        const series = sampleMeasurements.map((mts, i) => ({
-            title: js.sf(seriesTitle, selected),
-            valueAxis: "y1",
-            valueField: valueField + (i + 1),
-            categoryField: categoryField + (i + 1),
-        }));
-        const trendLines = [], guides = [];
-        
-        const colors = ["black", "red", "rgb(112,173,71)"];
-        
-        [1, 2, 3].forEach(i => {
-        	const stm = stageMeasurements[i - 1];
-	        const x = categoryField + i, y = valueField + i;
-	        const ls = GDS.find_linear_segment(stm, x, y);
-	        const max = GDS.maxOf({measurements: stm}, y)
-
-			ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
-			ls.b = ls.start[y] - ls.m * ls.start[x];
-			
-			const t100 = (max[y] - ls.b) / ls.m;
-            trendLines.push({
-				initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
-				finalXValue: ls.start[x], finalValue: 100,
-				lineColor: colors[i - 1], lineAlpha: 0.25,
-				dashLength: 2
-            }, {
-				initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
-				finalXValue: ls.end[x], finalValue: 100,
-				lineColor: colors[i - 1], lineAlpha: 0.25,
-				dashLength: 2
-            }, {
-				initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
-				finalXValue: 100, finalValue: max[y],
-				lineColor: colors[i - 1], lineAlpha: 0.25,
-				dashLength: 2
-            }, {
-		        initialXValue: -ls.b / ls.m, initialValue: 0,
-		        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
-		        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
-		        // dashLength: 2
-            // }, {
-		        // initialXValue: t100, initialValue: 0,
-		        // finalXValue: t100, finalValue: max[y] * 2,
-		        // lineColor: colors[i - 1], lineAlpha: 0.75,
-		        // dashLength: 2
-            });
-            guides.push({
-            	label: "t100", 
-            	above: true, inside: true,
-		        position: "bottom", 
-		        value: t100, lineAlpha: 0.8,
-				lineColor: colors[i - 1]
-            })
-        })
-        
-        this.vars("am", {
-            series: series,
-            stage: stage,
-            data: stageMeasurements[st],
-            trendLines: trendLines,
-            guides: guides
-        });
-        this.vars("am-" + st, this.vars("am"));
-        
-        makeChart(this, {
-            immediate: true,
-            node: this.getChildNode(st),
-            colors: colors,
-            trendLines: trendLines, 
-            valueAxes: [{
-                id: "y1",
-                position: "left",
-                reversed: reversed,
-            }, {
-                id: "x1",
-                position: "bottom",
-                title: js.sf(valueAxisTitle, selected),
-                logarithmic: logarithmic,
-                guides: guides,
-                treatZeroAs: GDS.treatZeroAs
-            }]
-        });
-        
-		this.getChildNode(st).qs("svg")._description = series[0].title;
-
-        if (++st < render_stages.length) {
-            this.nextTick(render);
-        } else {
-        	this.getChildNode(0).classList.add("print");
-        	this.vars("rendering", false);
-        }
-    };
-
-    var st = 0;
-    render_stages.length && render();
 }
 
 const GDSFotos = require("GDSFotos");
@@ -1432,11 +1303,68 @@ const handlers = {
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "CO";
-	
-	    renderChartL.call(this, vars, 
+	    
+        const valueField = "txVC", categoryField = "minutes_sqrt";
+        const trendLines = [], guides = [];
+        const colors = GDS.colors;
+
+	    renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
-	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_T);
+	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_T, 
+	    	(evt) => { // callback to provide options and get a grip on calcalted stageMeasurements
+		        const stageMeasurements = evt.stageMeasurements;
+		        
+		        [1, 2, 3].forEach(i => {
+		        	const stm = stageMeasurements[i - 1];
+			        const x = categoryField + i, y = valueField + i;
+			        const ls = GDS.find_linear_segment(stm, x, y);
+			        const max = GDS.maxOf({measurements: stm}, y)
+		
+					ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
+					ls.b = ls.start[y] - ls.m * ls.start[x];
+					
+					const t100 = (max[y] - ls.b) / ls.m;
+		            trendLines.push({
+						initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
+						finalXValue: ls.start[x], finalValue: 100,
+						lineColor: colors[i - 1], lineAlpha: 0.25,
+						dashLength: 2
+		            }, {
+						initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
+						finalXValue: ls.end[x], finalValue: 100,
+						lineColor: colors[i - 1], lineAlpha: 0.25,
+						dashLength: 2
+		            }, {
+						initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
+						finalXValue: 100, finalValue: max[y],
+						lineColor: colors[i - 1], lineAlpha: 0.25,
+						dashLength: 2
+		            }, {
+				        initialXValue: -ls.b / ls.m, initialValue: 0,
+				        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
+				        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+				        // dashLength: 2
+		            // }, {
+				        // initialXValue: t100, initialValue: 0,
+				        // finalXValue: t100, finalValue: max[y] * 2,
+				        // lineColor: colors[i - 1], lineAlpha: 0.75,
+				        // dashLength: 2
+		            });
+		            guides.push({
+		            	label: "t100", 
+		            	above: true, inside: true,
+				        position: "bottom", 
+				        value: t100, lineAlpha: 0.8,
+						lineColor: colors[i - 1]
+		            })
+		        });
+
+	    		return {
+		    		valueAxes: { x1: { guides: guides } },
+		    		trendLines: trendLines
+		    	};
+		    });
 	},
 	'#graph_PorePressureDissipation onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
@@ -1487,7 +1415,7 @@ const handlers = {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "SH";
 	
-	    renderMohrCircles.call(this, vars, 
+	    renderChart_MohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
 	    	locale("Graph:ShearStress.title.stage-F"));
 	},

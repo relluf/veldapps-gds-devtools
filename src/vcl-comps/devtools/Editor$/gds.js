@@ -338,6 +338,11 @@ const downloadCSV = (arr, filename) => {
 	["vcl/ui/List", ("variables"), { 
 		align: "client", autoColumns: true, visible: false, 
 		source: "array-variables",
+		onRender() {
+			(this._columns || [])
+				.filter(col => col._attribute === "raw")
+				.forEach(col => col.hide());
+		},
 		onDblClick: function() {
 			this.print(this.getSelection(true));	
 		}
