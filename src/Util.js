@@ -344,101 +344,11 @@ define(["locale"], Util => {
 		this.stop = function(persist) {
 			var modified = false, points = [];
 			if(persist) {
-				if(owner._name === "graph_Isotachen_c") {
-					chart.trendLines.forEach((tl, index) => {
-						var type = "DEF";
-						if(tl && tl.modified) {
-							modified = true;
-							tl.lineThickness = 1;
-							tl.draw();
-				
-							var line = {
-								initialXValue: tl.initialXValue,
-								initialValue: tl.initialValue,
-								finalXValue: tl.finalXValue,
-								finalValue: tl.finalValue
-							};
-					
-							js.set(js.sf("overrides.isotachen.stage%d.lines.%s", stage.i, type), line, vars);
-						}
-					});
-					if(modified) {
-						stage.isotachen.update();
-					}
-				} else if(owner._name === "graph_Casagrande") {
-					chart.trendLines.forEach((tl, index) => {
-						var type = index === 0 ? "AB" : "DEF";
-						if(tl && tl.modified) {
-							modified = true;
-							tl.lineThickness = 1;
-							tl.draw();
-				
-							var line = {
-								initialXValue: tl.initialXValue,
-								initialValue: tl.initialValue,
-								finalXValue: tl.finalXValue,
-								finalValue: tl.finalValue
-							};
-					
-							js.set(js.sf("overrides.casagrande.stage%d.lines.%s", stage.i, type), line, vars);
-						}
-					});
-					if(modified) {
-						stage.casagrande.update();
-					}
-				} else if(owner._name === "graph_Taylor") {
-					chart.trendLines.forEach((tl, index) => {
-						var type = "Qq"; // lineaire fit
-						if(tl && tl.modified) {
-							modified = true;
-							tl.lineThickness = 1;
-							tl.draw();
-				
-							var line = {
-								initialXValue: tl.initialXValue,
-								initialValue: tl.initialValue,
-								finalXValue: tl.finalXValue,
-								finalValue: tl.finalValue 
-							};
-					
-							js.set(js.sf("overrides.taylor.stage%d.lines.%s", stage.i, type), line, vars);
-						}
-					});
-					if(modified) {
-						stage.taylor.update();
-					}
-				} else if(owner._name === "graph_Koppejan") {
-					chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
-						if(tl) {
-							modified = true;
-							tl.lineThickness = 1;
-							tl.draw();
-							points.push(
-								{ x: tl.initialXValue, y: tl.initialValue },
-								{ x: tl.finalXValue, y: tl.finalValue });
-						}
-					});
-					js.set("overrides.koppejan.points_pg", points, vars);
-					vars.koppejan.update();
-				} else {
-					var name = owner._name.substring("graph_".length).toLowerCase();
-					if(["bjerrum_e", "bjerrum_r", "isotachen"].indexOf(name) !== -1) {
-						chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
-							if(tl) {
-								modified = true;
-								tl.lineThickness = 1;
-								tl.draw();
-								points.push(
-									{ x: tl.initialXValue, y: tl.initialValue },
-									{ x: tl.finalXValue, y: tl.finalValue });
-							}
-						});
-						js.set(js.sf("overrides.%s.points_pg", name), points, vars);
-						if(modified) {
-							stage.update(name); // FIXME stage(0).updates
-						}
-					}
-				}
+				// TODO refactor/move this code to the vars-object of corresponding graph
+				const handler = owner.vars("TrendLineEditor_stop");
+				if(typeof handler === "function") {
+					modified = handler(vars, stage, chart, owner);
+				} 
 				if(modified) {
 					vars.parameters.update();
 					owner.setState("invalidated", true);

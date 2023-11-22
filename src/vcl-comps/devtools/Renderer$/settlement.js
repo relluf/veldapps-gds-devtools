@@ -1191,6 +1191,28 @@ function koppejan_variables(vars) {
 	];
 }
 
+function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
+	var modified = false, points = [];
+	var name = owner._name.substring("graph_".length).toLowerCase();
+	if(["bjerrum_e", "bjerrum_r", "isotachen"].indexOf(name) !== -1) {
+		chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
+			if(tl) {
+				modified = true;
+				tl.lineThickness = 1;
+				tl.draw();
+				points.push(
+					{ x: tl.initialXValue, y: tl.initialValue },
+					{ x: tl.finalXValue, y: tl.finalValue });
+			}
+		});
+		js.set(js.sf("overrides.%s.points_pg", name), points, vars);
+		if(modified) {
+			stage.update(name); // FIXME stage(0).updates
+		}
+	}
+	return modified === true;
+}
+
 ["", { 
 	handlers: handlers, 
 	vars: { 
@@ -1364,25 +1386,124 @@ function koppejan_variables(vars) {
 	]],
 	[("#graphs"), { }, [
 		["vcl/ui/Panel", ("graph_Casagrande"), {
-			align: "client", visible: false, classes: "multiple"
+			align: "client", visible: false, classes: "multiple",
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified;
+					chart.trendLines.forEach((tl, index) => {
+						var type = index === 0 ? "AB" : "DEF";
+						if(tl && tl.modified) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+				
+							var line = {
+								initialXValue: tl.initialXValue,
+								initialValue: tl.initialValue,
+								finalXValue: tl.finalXValue,
+								finalValue: tl.finalValue
+							};
+					
+							js.set(js.sf("overrides.casagrande.stage%d.lines.%s", stage.i, type), line, vars);
+						}
+					});
+					if(modified) {
+						stage.casagrande.update();
+					}
+					return modified === true;
+				}
+			}
 		}],
 		["vcl/ui/Panel", ("graph_Taylor"), {
-			align: "client", visible: false, classes: "multiple"
+			align: "client", visible: false, classes: "multiple",
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified;
+					chart.trendLines.forEach((tl, index) => {
+						var type = "Qq"; // lineaire fit
+						if(tl && tl.modified) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+				
+							var line = {
+								initialXValue: tl.initialXValue,
+								initialValue: tl.initialValue,
+								finalXValue: tl.finalXValue,
+								finalValue: tl.finalValue 
+							};
+					
+							js.set(js.sf("overrides.taylor.stage%d.lines.%s", stage.i, type), line, vars);
+						}
+					});
+					if(modified) {
+						stage.taylor.update();
+					}
+					return modified === true;
+				}
+			}
 		}],
 		["vcl/ui/Panel", ("graph_Bjerrum_e"), {
-			align: "client", visible: false
+			align: "client", visible: false,
+			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
 		}],
 		["vcl/ui/Panel", ("graph_Bjerrum_r"), {
-			align: "client", visible: false
+			align: "client", visible: false,
+			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
 		}],
 		["vcl/ui/Panel", ("graph_Isotachen"), {
-			align: "client", visible: false
+			align: "client", visible: false,
+			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
 		}],
 		["vcl/ui/Panel", ("graph_Koppejan"), {
-			align: "client", visible: false
+			align: "client", visible: false,
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified = false, points = [];
+					chart.trendLines.filter(tl => tl.editable).forEach((tl, index) => {
+						if(tl) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+							points.push(
+								{ x: tl.initialXValue, y: tl.initialValue },
+								{ x: tl.finalXValue, y: tl.finalValue });
+						}
+					});
+					js.set("overrides.koppejan.points_pg", points, vars);
+					vars.koppejan.update();
+					return modified === true;
+				}
+			}
 		}],
 		["vcl/ui/Panel", ("graph_Isotachen_c"), {
-			align: "client", visible: false, classes: "multiple"
+			align: "client", visible: false, classes: "multiple",
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified;
+					chart.trendLines.forEach((tl, index) => {
+						var type = "DEF";
+						if(tl && tl.modified) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+				
+							var line = {
+								initialXValue: tl.initialXValue,
+								initialValue: tl.initialValue,
+								finalXValue: tl.finalXValue,
+								finalValue: tl.finalValue
+							};
+					
+							js.set(js.sf("overrides.isotachen.stage%d.lines.%s", stage.i, type), line, vars);
+						}
+					});
+					if(modified) {
+						stage.isotachen.update();
+					}
+					return modified === true;
+				}
+			}
 		}],
 		
 		[("#panel-edit-graph"), {}, [

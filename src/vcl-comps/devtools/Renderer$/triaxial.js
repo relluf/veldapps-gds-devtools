@@ -7,6 +7,8 @@ const locale = window.locale.prefixed("devtools:Renderer:gds:");
 const js = require("js");
 const regression = require("lib/node_modules/regression/dist/regression");
 
+const GDSFotos = require("GDSFotos");
+
 const GDS = require("./Util");
 const Button = require("vcl/ui/Button");
 const Tab = require("vcl/ui/Tab");
@@ -849,6 +851,7 @@ function setup_parameters(vars) {
 		category(("ShearPhase"), shearItems, adjustC("axialStrainNN%", "usr_Ev", vars.Ev_usr || 2))
 	];
 	vars.parameters = vars.categories.map(_ => (_.items || []).map(kvp => js.mi({ category: _ }, kvp))).flat();
+	vars.parameters.update = () => {};
 	vars.refresh_mohr_coulomb_parameters = () => refresh_mohr_coulomb_parameters(vars);
 }
 function refresh_mohr_coulomb_parameters(vars) {
@@ -1179,6 +1182,10 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
 	
+	var trendLine = js.get("overrides.graphs.ShearStress.lines.0", vars);
+	if(trendLine) trendLine = js.mixIn(trendLine);
+	// this.print("mohrTrendLine", trendLine);
+
     makeChart(this, {
         immediate: true,
         node: this.getNode(),
@@ -1193,20 +1200,18 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
             title: js.sf(valueAxisTitle, vars.stages.SH.i + 1),
             treatZeroAs: GDS.treatZeroAs
         }],
-        trendLines: [{
+        trendLines: [js.mi(trendLine || {
 			initialXValue: 0, initialValue: t_(0),
 			finalXValue: 300, finalValue: t_(300),
-			lineColor: "teal", lineAlpha: 0.95,
+			lineColor: "teal", lineAlpha: 0.95
+		}, {
 			lineThickness: 3, dashLength: 2,
 			editable: true
-        }]
+        })]
     });
     
 	this.getNode().qs("svg")._description = series[0].title;
-    
 }
-
-const GDSFotos = require("GDSFotos");
 
 /* Event Handlers */
 const handlers = {
@@ -1307,12 +1312,13 @@ const handlers = {
         const valueField = "txVC", categoryField = "minutes_sqrt";
         const trendLines = [], guides = [];
         const colors = GDS.colors;
+        const changedLines = js.get("overrides.graphs.VolumeChange.lines", vars) || [];
 
 	    renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
 	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_T, 
-	    	(evt) => { // callback to provide options and get a grip on calcalted stageMeasurements
+	    	(evt) => { // callback to provide options and get a grip on calculated stageMeasurements
 		        const stageMeasurements = evt.stageMeasurements;
 		        
 		        [1, 2, 3].forEach(i => {
@@ -1320,37 +1326,37 @@ const handlers = {
 			        const x = categoryField + i, y = valueField + i;
 			        const ls = GDS.find_linear_segment(stm, x, y);
 			        const max = GDS.maxOf({measurements: stm}, y)
-		
+
 					ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
 					ls.b = ls.start[y] - ls.m * ls.start[x];
+
+			        const lastLine = changedLines[i * 4 - 1] ? js.mixIn({
+							lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+			            }, changedLines[i * 4 - 1]) : {
+					        initialXValue: -ls.b / ls.m, initialValue: 0,
+					        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
+					        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+			            };
+		
 					
 					const t100 = (max[y] - ls.b) / ls.m;
 		            trendLines.push({
 						initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.start[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.25,
+						lineColor: colors[i - 1], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.end[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.25,
+						lineColor: colors[i - 1], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
 						finalXValue: 100, finalValue: max[y],
-						lineColor: colors[i - 1], lineAlpha: 0.25,
+						lineColor: colors[i - 1], lineAlpha: 0.05,
 						dashLength: 2
-		            }, {
-				        initialXValue: -ls.b / ls.m, initialValue: 0,
-				        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
-				        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
-				        // dashLength: 2
-		            // }, {
-				        // initialXValue: t100, initialValue: 0,
-				        // finalXValue: t100, finalValue: max[y] * 2,
-				        // lineColor: colors[i - 1], lineAlpha: 0.75,
-				        // dashLength: 2
-		            });
+		            }, 
+		            lastLine);
 		            guides.push({
 		            	label: "t100", 
 		            	above: true, inside: true,
@@ -1849,6 +1855,7 @@ const handlers = {
     			vars.overrides = evt.overrides;
     		} else {
     			if(!vars.overrides) return;
+    			delete vars.overrides.graphs;
     		}
 
 			this.ud("#graphs").getControls().map(c => c.render());
@@ -2080,7 +2087,32 @@ const handlers = {
 	[("#graphs"), { }, [
 		["vcl/ui/Panel", ("graph_VolumeChange"), {
 			align: "client", visible: false, 
-			classes: "single"
+			classes: "single",
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified;
+					chart.trendLines.forEach((tl, index) => {
+						if(tl && tl.modified) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+				
+							var line = {
+								initialXValue: tl.initialXValue,
+								initialValue: tl.initialValue,
+								finalXValue: tl.finalXValue,
+								finalValue: tl.finalValue
+							};
+					
+							js.set(js.sf("overrides.graphs.VolumeChange.lines.%s", index), line, vars);
+						}
+					});
+					if(modified) {
+						// TODO what to update here instead of:  stage.isotachen.update();
+					}
+					return modified === true;
+				}
+			}
 		}],
 		["vcl/ui/Panel", ("graph_PorePressureDissipation"), {
 			align: "client", visible: false, 
@@ -2104,7 +2136,32 @@ const handlers = {
 		}],
 		["vcl/ui/Panel", ("graph_ShearStress"), {
 			align: "client", visible: false, 
-			classes: "single"
+			classes: "single",
+			vars: {
+				TrendLineEditor_stop(vars, stage, chart, owner) {
+					var modified;
+					chart.trendLines.forEach((tl, index) => {
+						if(tl && tl.modified) {
+							modified = true;
+							tl.lineThickness = 1;
+							tl.draw();
+				
+							var line = {
+								initialXValue: tl.initialXValue,
+								initialValue: tl.initialValue,
+								finalXValue: tl.finalXValue,
+								finalValue: tl.finalValue
+							};
+					
+							js.set(js.sf("overrides.graphs.ShearStress.lines.%s", index), line, vars);
+						}
+					});
+					if(modified) {
+						// TODO what to update here instead of:  stage.isotachen.update();
+					}
+					return modified === true;
+				}
+			}
 		}],
 		["vcl/ui/Panel", ("graph_Taylor"), {
 			align: "client", visible: false, 
