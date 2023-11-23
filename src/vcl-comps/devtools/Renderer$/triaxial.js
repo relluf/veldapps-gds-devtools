@@ -1856,6 +1856,13 @@ const handlers = {
     		} else {
     			if(!vars.overrides) return;
     			delete vars.overrides.graphs;
+    			delete vars.overrides.photos;
+    			this.ud("#bar-user-inputs").getControls().forEach(c => {
+    				if(c['@properties'].value !== undefined) {
+    					c.revertPropertyValue("value");
+    				}
+    			});
+    			GDSFotos.clearAll(this.up());
     		}
 
 			this.ud("#graphs").getControls().map(c => c.render());
