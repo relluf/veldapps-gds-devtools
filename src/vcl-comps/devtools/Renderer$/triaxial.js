@@ -904,13 +904,13 @@ function getSampleMeasurements(comp, vars, dontRefresh) {
     	.map(arr => arr && arr.getArray())
     	.filter(arr => arr);
 
-    if(sampleMeasurements[0][0].txVC === undefined) {
+    if(sampleMeasurements[0] && sampleMeasurements[0][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[0]);
     }
-    if(sampleMeasurements[1][0].txVC === undefined) {
+    if(sampleMeasurements[1] && sampleMeasurements[1][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[1]);
     }
-    if(sampleMeasurements[2][0].txVC === undefined) {
+    if(sampleMeasurements[2] && sampleMeasurements[2][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[2]);
     }
     
@@ -1277,7 +1277,17 @@ const handlers = {
 
 			var modified = this.ud("#modified");
 			var blocked = modified.vars("blocked");
-			
+			var parent = component.getParent();
+			var value = component.getValue();
+
+			if(value) {
+				// finds all other selects which value equals component's value and resets their value
+				parent
+					.qsa("< vcl/ui/Select")
+					.filter(s => s !== component && s.getValue() === value)
+					.forEach(s => s.setValue(""));
+			}
+
 			this.setTimeout("refresh", () => {
 	    		var vars = this.vars(["variables"]);
 
@@ -1293,10 +1303,7 @@ const handlers = {
 		    		js.set("overrides.inputs", inputs, vars);
 
 					this.ud("#refresh").execute();
-					this.print("overrides", vars.overrides);
-					// this.print("vars", vars);
-		   // 		this.print("vars-equals", vars === this.vars(["variables"]));
-					
+
 					if(!blocked) {
 						modified.setState(true);
 					}
@@ -1663,16 +1670,20 @@ const handlers = {
 				index -= (index + 2) - (sel.length - 1);
 				if(index < 0) index = 0;
 			}
+			
+			const NULL_SAMPLE = "- - - - - - - - - - - - -";
 					
 			for(let i = 1; i <= 3; ++i) {
 				let select = this._owner.qs("#select-sample-" + i);
-				select.setOptions(sel.map(o => ({ 
-					// value: o.d.getAttributeValue("id"), 
+				select.setOptions([{content: NULL_SAMPLE, value: ""}].concat(sel.map(o => ({ 
+					value_id: o.d.getAttributeValue("id"), 
 					content: o.d.getAttributeValue("naam"),
 					value: o.n.hashCode()
-				})));
+				}))));
 				if(sel.length >= i + index) {
 					select.setValue(sel[i - 1 + index].n.hashCode());
+				} else {
+					select.setValue(null);
 				}
 			}
 			
