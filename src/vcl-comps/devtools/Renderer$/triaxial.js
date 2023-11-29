@@ -597,23 +597,24 @@ function setup_mohr_coulomb(vars, root) {
     	js.$[root.ud("#select-sample-2").getValue()], 
     	js.$[root.ud("#select-sample-3").getValue()]
     ]
-    	.filter(o => o)
-    	.map(n => n.qs("devtools/Editor<gds>:root"))
-    	.map(r => r.vars(["variables.stages.SH"]))
+    	.map(n => n && n.qs("devtools/Editor<gds>:root"))
+    	.map(r => r && r.vars(["variables.stages.SH"]))
     	.filter(o => o);
-    	
-    if(shss.length !== 3) return;// root.print("mohr canceled", root.vars(["resource.uri"]));
+
+    if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
-		const x = [shss[0][k].mt.ens_s_,	shss[1][k].mt.ens_s_,	shss[2][k].mt.ens_s_];
-		const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
+		// const x = [shss[0][k].mt.ens_s_,	shss[1][k].mt.ens_s_,	shss[2][k].mt.ens_s_];
+		// const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
+		const x = shss.map(e => e[k].mt.ens_s_);
+		const y = shss.map(e => e[k].mt.ss_t);
 		const mohr = GDS.calc_slopeAndYIntercept(x, y);
 
 		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
 		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
 		
-		for(var s = 0; s < 3; ++s) {
+		for(var s = 0; s < shss.length; ++s) {
 			shss[s][k].mohr = js.mi(mohr);
 
 			js.mi(shss[s][k].mohr, {
@@ -881,6 +882,15 @@ function refresh_mohr_coulomb_parameters(vars) {
 	}
 }
 
+function select_colors(root) {
+	return [
+    	js.$[root.qs("#select-sample-1").getValue()], 
+    	js.$[root.qs("#select-sample-2").getValue()], 
+    	js.$[root.qs("#select-sample-3").getValue()]
+    ]
+    	.map((c, i) => c ? GDS.colors[i] : null)
+    	.filter(v => v);
+}
 function getSampleMeasurements(comp, vars, dontRefresh) {
 	const refresh = (node) => { // HACKER-THE-HACK but seems to work nicely
 		node.setTimeout("refresh", () => {
@@ -1047,6 +1057,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     	js.$[this.ud("#select-sample-2").getValue()], 
     	js.$[this.ud("#select-sample-3").getValue()]
     ]
+    	.filter(v => v)
     	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected))
     	.map(stage => stage.measurements);
 
@@ -1072,7 +1083,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	const all = Object.keys(index).map(key => index[key]);
 	const stageMeasurements = vars.stages.map((st, i) => all
 			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
-			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
+			.filter(mt => sampleMeasurements.every((a, i) => js.get("mt_" + (i+1) + ".disabled", mt) !== true)));
 			
 	if(typeof opts === "function") {
 		opts = opts({
@@ -1101,7 +1112,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: GDS.colors,
+            colors: select_colors(this.up(), GDS.colors),
             trendLines: opts.trendLines || [],
             valueAxes: [
             	extopt("valueAxes.y1", {
@@ -1119,7 +1130,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	         ]
         });
         
-		this.getChildNode(st).qs("svg")._description = series[0].title;
+		if(series.length) this.getChildNode(st).qs("svg")._description = series[0].title;
 
         if (++st < render_stages.length) {
             this.nextTick(render);
@@ -1156,9 +1167,10 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     	js.$[this.ud("#select-sample-2").getValue()], 
     	js.$[this.ud("#select-sample-3").getValue()]
     ]
+    	.filter(n => n)
     	.map(n => n.qs("devtools/Editor<gds>:root"))
     	.map(r => r.vars(["variables.stages.SH"]))
-    	.filter(o => o);
+    	.filter(o => o && o.usr_Ev.mohr);
 	
 	const measurements = shss.map(ss => ss.usr_Ev.mohr.serie).flat().sort((i1, i2) => {
 		return i1.x < i2.x ? -1 : i1.x === i2.x ? 0 : 1;
@@ -1175,6 +1187,8 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
         stage: "SH",
         data: measurements
     });
+    
+    if(!shss.length) return;
 
     const mohr = shss[0].usr_Ev.mohr;
 
@@ -1183,31 +1197,32 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
 	
 	var trendLine = js.get("overrides.graphs.ShearStress.lines.0", vars);
-	if(trendLine) trendLine = js.mixIn(trendLine);
-	// this.print("mohrTrendLine", trendLine);
-
-    makeChart(this, {
-        immediate: true,
-        node: this.getNode(),
-        colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
-        valueAxes: [{
-            id: "y1",
-            position: "left",
-            maximum: t_(GDS.maxOf({measurements:measurements}, "x").x + 10)
-        }, {
-            id: "x1",
-            position: "bottom",
-            title: js.sf(valueAxisTitle, vars.stages.SH.i + 1),
-            treatZeroAs: GDS.treatZeroAs
-        }],
-        trendLines: [js.mi(trendLine || {
+	trendLine = js.mi(trendLine ? js.mi(trendLine) : {
 			initialXValue: 0, initialValue: t_(0),
 			finalXValue: 300, finalValue: t_(300),
 			lineColor: "teal", lineAlpha: 0.95
 		}, {
 			lineThickness: 3, dashLength: 2,
 			editable: true
-        })]
+        });
+
+	this.print("mohr-info", {tl: trendLine, mohr: mohr});
+
+    makeChart(this, {
+        immediate: true,
+        node: this.getNode(),
+        colors: select_colors(this.up(), GDS.colors),
+        valueAxes: [{
+            id: "y1",
+            position: "left",
+            maximum: t_(GDS.maxOf({measurements: measurements}, "x").x + 10)
+        }, {
+            id: "x1",
+            position: "bottom",
+            title: js.sf(valueAxisTitle, vars.stages.SH.i + 1),
+            treatZeroAs: GDS.treatZeroAs
+        }],
+        trendLines: [trendLine]
     });
     
 	this.getNode().qs("svg")._description = series[0].title;
@@ -1328,39 +1343,38 @@ const handlers = {
 	    	(evt) => { // callback to provide options and get a grip on calculated stageMeasurements
 		        const stageMeasurements = evt.stageMeasurements;
 		        
-		        [1, 2, 3].forEach(i => {
-		        	const stm = stageMeasurements[i - 1];
-			        const x = categoryField + i, y = valueField + i;
+		        evt.sampleMeasurements.forEach((a, i) => {
+		        	const stm = stageMeasurements[i];
+			        const x = categoryField + (i + 1), y = valueField + (i + 1);
 			        const ls = GDS.find_linear_segment(stm, x, y);
 			        const max = GDS.maxOf({measurements: stm}, y)
 
 					ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
 					ls.b = ls.start[y] - ls.m * ls.start[x];
 
-			        const lastLine = changedLines[i * 4 - 1] ? js.mixIn({
-							lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
-			            }, changedLines[i * 4 - 1]) : {
+			        const lastLine = changedLines[i * 4 + 3] ? js.mixIn({
+							lineColor: colors[i], lineAlpha: 0.35, editable: true
+			            }, changedLines[i * 4 + 3]) : {
 					        initialXValue: -ls.b / ls.m, initialValue: 0,
 					        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
-					        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+					        lineColor: colors[i], lineAlpha: 0.35, editable: true
 			            };
-		
-					
+
 					const t100 = (max[y] - ls.b) / ls.m;
 		            trendLines.push({
 						initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.start[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.end[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
 						finalXValue: 100, finalValue: max[y],
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, 
 		            lastLine);
@@ -1369,7 +1383,7 @@ const handlers = {
 		            	above: true, inside: true,
 				        position: "bottom", 
 				        value: t100, lineAlpha: 0.8,
-						lineColor: colors[i - 1]
+						lineColor: colors[i]
 		            })
 		        });
 
@@ -1722,13 +1736,13 @@ const handlers = {
 		    	.map(arr => arr && arr.getArray())
 		    	.filter(arr => arr);
 
-		    if(sampleMeasurements[0][0].txVC === undefined) {
+		    if(sampleMeasurements[0] && sampleMeasurements[0][0].txVC === undefined) {
 		    	return refresh(nodes[0]);
 		    }
-		    if(sampleMeasurements[1][0].txVC === undefined) {
+		    if(sampleMeasurements[1] && sampleMeasurements[1][0].txVC === undefined) {
 		    	return refresh(nodes[1]);
 		    }
-		    if(sampleMeasurements[2][0].txVC === undefined) {
+		    if(sampleMeasurements[2] && sampleMeasurements[2][0].txVC === undefined) {
 		    	return refresh(nodes[2]);
 		    }
 		    
