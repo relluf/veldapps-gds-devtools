@@ -601,19 +601,17 @@ function setup_mohr_coulomb(vars, root) {
     	.map(r => r && r.vars(["variables.stages.SH"]))
     	.filter(o => o);
 
-    if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
+    // if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
-		// const x = [shss[0][k].mt.ens_s_,	shss[1][k].mt.ens_s_,	shss[2][k].mt.ens_s_];
-		// const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
 		const x = shss.map(e => e[k].mt.ens_s_);
 		const y = shss.map(e => e[k].mt.ss_t);
 		const mohr = GDS.calc_slopeAndYIntercept(x, y);
 
 		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
 		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
-		
+
 		for(var s = 0; s < shss.length; ++s) {
 			shss[s][k].mohr = js.mi(mohr);
 
@@ -623,6 +621,10 @@ function setup_mohr_coulomb(vars, root) {
 				y: 0
 			});
 			
+			// phi's = sin-1 ((o_1 - o_3) / (o_1 + o_3))
+			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202312/20231206-140003-hNI8V2.png
+			shss[s][k].mohr.phi_s = Math.asin((shss[s][k].o_1 - shss[s][k].o_3) / (shss[s][k].o_1 + shss[s][k].o_3)) * (180 / Math.PI);
+
 			shss[s][k].mohr.serie = (() => {
 				var center = shss[s][k].mohr;
 				var radius = shss[s][k].mohr.r;
@@ -753,7 +755,8 @@ function setup_parameters(vars) {
 			["c_"],
 			["a"],
 			["b"],
-			["e50und"]
+			["e50und"],
+			["phi_s"]
 		];
 
 	const adjustC = (type, key, value) => (c) => {
@@ -1195,16 +1198,29 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     // Convert phi' from degrees to radians
     // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
-	
+
 	var trendLine = js.get("overrides.graphs.ShearStress.lines.0", vars);
-	trendLine = js.mi(trendLine ? js.mi(trendLine) : {
-			initialXValue: 0, initialValue: t_(0),
-			finalXValue: 300, finalValue: t_(300),
-			lineColor: "teal", lineAlpha: 0.95
-		}, {
-			lineThickness: 3, dashLength: 2,
-			editable: true
-        });
+	if(sampleMeasurements.length === 1) {
+		
+		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
+				initialXValue: 0, initialValue: 0,
+				finalXValue: 300, finalValue: Math.tan(mohr.phi_s / (180 / Math.PI)) * 300,
+				lineColor: "teal", lineAlpha: 0.95
+			}, {
+				lineThickness: 3, dashLength: 2,
+				editable: true
+	        });
+	} else {
+		
+		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
+				initialXValue: 0, initialValue: t_(0),
+				finalXValue: 300, finalValue: t_(300),
+				lineColor: "teal", lineAlpha: 0.95
+			}, {
+				lineThickness: 3, dashLength: 2,
+				editable: true
+	        });
+	}
 
 	this.print("mohr-info", {tl: trendLine, mohr: mohr});
 
@@ -1759,16 +1775,18 @@ const handlers = {
 
 			["0", "1", "2"].forEach(i => {
 				var s = js.get("overrides.sample" + i, vars);
-				[8, 9, 10].forEach(j => {
-					[7, 8, 9, 10].forEach(k => {
-						if(!s[j].items[k].value) {
-							s[j].items[k].value = 
-								vars.overrides.sample0[j].items[k].value ||
-								vars.overrides.sample1[j].items[k].value ||
-								vars.overrides.sample2[j].items[k].value;
-						}
-					})
-				})
+				if(s) {
+					[8, 9, 10].forEach(j => {
+						[7, 8, 9, 10].forEach(k => {
+							if(!s[j].items[k].value) {
+								s[j].items[k].value = 
+									js.get(js.sf("overrides.sample0.%s.items.%s.value", j, k), vars) ||
+									js.get(js.sf("overrides.sample1.%s.items.%s.value", j, k), vars) ||
+									js.get(js.sf("overrides.sample2.%s.items.%s.value", j, k), vars);
+							}
+						})
+					});
+				}
 			});
 				
 			this.udr("#generate").execute(evt);
