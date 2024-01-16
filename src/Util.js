@@ -1028,7 +1028,7 @@ function calc_dH(vars, stage) {
 	
 		vars.stages.forEach((stage, index) => { try {
 	
-		/*- determine AB & DEF */
+		/*- determine AB & DEF (https://chat.openai.com/c/77902a83-0285-46f4-bc11-264c7a2a0974) */
 	
 			var measurements = stage.measurements.slice(1);
 			var M = measurements;
@@ -1040,17 +1040,20 @@ function calc_dH(vars, stage) {
 			var idx = 0, vpnn = [], vnnp = [];
 			while(measurements[idx].minutes < 150) { /*- TODO why 150 minutes?! */
 				if(idx && (measurements[idx - 1]["dy'"] < 0) && (measurements[idx]["dy'"] > 0)) {
-					// vpnn.push(measurements[idx]);
 					vpnn.push(idx);
 				}
 				idx++;
 			}
 			while(idx < measurements.length) {
 				if(idx && (measurements[idx - 1]["dy'"] > 0) && (measurements[idx]["dy'"] < 0)) {
-					// vpnn.push(measurements[idx]);
 					vnnp.push(idx);
 				}
 				idx++;
+			}
+			
+			/*- VA-20240111-1 at least 4 points are needed */
+			while(vpnn.length > 0 && vpnn.length < 4) {
+				vpnn.push(vpnn[vpnn.length - 1]);
 			}
 			
 			var calc_CG = (stage) => {
