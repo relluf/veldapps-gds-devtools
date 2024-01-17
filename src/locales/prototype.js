@@ -12,7 +12,14 @@ define((require) => ({
 		"Consolidated":							"Geconsolideerde",
 		"Drianed":								"Gedraineerde",
 		"Undrianed":							"Ongedraineerde",
-		"TriaxialTest":							"Triaxiaalproef",
+		"TriaxialTest": {
+			'': 								"Triaxiaalproef",
+			
+			'.type':							"Proeftype",
+			'.types': [[
+				"CIUc", "CIDc"
+			]]
+		},
 		"NEN-EN-ISO":							"NEN-EN-ISO 17892-9:2018",
 		
 		"DrainUsed#": {
@@ -68,7 +75,11 @@ define((require) => ({
 			"MohrCoulomb": {
 				"":								"Mohr-Coulomb",
 				".title.stage-F":				"schuifspanning [kN/m2] / effectieve spanning [kN/m2] →"
-			}
+			},
+			"VolumeChange_SS": {
+				"":								"Volumeverandering (2)",
+				".title.stage-F":				"Trap %s: volumeverandering [cm3] / axiale rek [%%] →"
+			},
 		},
 		"Section:": {
 			"General": {
@@ -106,21 +117,21 @@ define((require) => ({
 				"-diameter":				{	'': "Diameter", 					'.unit': "mm",		'.symbol': "D"		},
 				"-surface":					{	'': "Oppervlakte",					'.unit': "mm",		'.symbol': "Ai"		},
 				"-volume":					{	'': "Volume",						'.unit': "cm3",		'.symbol': "Vi"		},
-				"-sampleMassWet":			{	'': "Massa proefstuk nat",			'.unit': "g",		'.symbol': "mi"	},
+				"-sampleMassWet":			{	'': "Massa proefstuk nat",			'.unit': "g",		'.symbol': "mi"		},
 				"-sampleMassDry":			{	'': "Massa proefstuk droog",		'.unit': "g",		'.symbol': "mdi"	},
-				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pi"	}, // volumieke massa
+				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pi"		}, // volumieke massa
 				"-densityDry":				{	'': "Dichtheid droog",				'.unit': "Mg/m3",	'.symbol': "pdi"	}, // droge volumieke massa
 				"-waterContent":			{	'': "Watergehalte", 				'.unit': "%",		'.symbol': "wi"		},
 				"-saturation":				{	'': "Verzadigingsgraad",			'.unit': "%",		'.symbol': "Sri"	},
-				"-grainDensity":			{	'': "Korreldichtheid",				'.unit': "Mg/m3",	'.symbol': "ps"	},
+				"-grainDensity":			{	'': "Korreldichtheid",				'.unit': "Mg/m3",	'.symbol': "ps"		},
 				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"		},
 			},
 			"Final": {
 				".title":						"Uiteindelijke waarden",
-				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pf"	}, // volumieke massa
+				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pf"		}, // volumieke massa
 				"-densityDry":				{	'': "Dichtheid droog",				'.unit': "Mg/m3",	'.symbol': "pdf"	}, // droge volumieke massa
 				"-waterContent":			{	'': "Watergehalte", 				'.unit': "%",		'.symbol': "wf"		},
-				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"	},
+				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"		},
 			},
 			"Photos": {
 				".title":						"Foto's"
@@ -180,7 +191,7 @@ define((require) => ({
 				"-axialStrainNN%":			{	'': "Bij %s%% axial rek" },
 
 				"-axialStrain": 			{	'': "Axiale rek",					'.unit': "%",		'.symbol': ".Ev" },
-				"-deviatorStressCorrected": {	'': "Gecorrigeerde deviatorspanning",'.unit': "kPa",		'.symbol': ".q_corr" },
+				"-deviatorStressCorrected": {	'': "Gecorrigeerde deviatorspanning",'.unit': "kPa",	'.symbol': ".q_corr" },
 				"-effectiveHorizontalStress":{	'': "Effectieve horizontale spanning",'.unit': "kPa",	'.symbol': ".o_3" },
 				"-effectiveVerticalStress":	{	'': "Effectieve verticale spanning",'.unit': "kPa",		'.symbol': ".o_1" },
 				"-sigma1/3":				{	'': "σ'1/σ'3",						'.unit': "-",		'.symbol': ".o_1o_3" },
