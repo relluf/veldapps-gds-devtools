@@ -31,7 +31,7 @@ define(["locale"], Util => {
 	        seg2: ub >= 0 && ub <= 1
 	    };
 	}
-	function log_line_intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+	function log_line_intersect(x1, y1, x2, y2, x3, y3, x4, y4, count = 0, scale = 1) {
 	/*- find intersection in logarithimic-plane, straight line on log-scale? 
 		>> N = b * g ^ t; (https://www.youtube.com/watch?v=i3jbTrJMnKs) */
 	
@@ -40,15 +40,25 @@ define(["locale"], Util => {
 		var t2 = y2, N2 = x2;
 		var dt1 = t2 - t1;
 		var g1 = Math.pow(N2 / N1, 1 / dt1);
-		var b1 = N1 / Math.pow(g1, t1);
-	
+		var b1 = N1 / Math.pow(g1, t1 / scale);
+
 	/*- (t3,N3), (t4,N4) => g2, b2 */
 		var t3 = y3, N3 = x3;
 		var t4 = y4, N4 = x4;
 		var dt2 = t4 - t3;
 		var g2 = Math.pow(N4 / N3, 1 / dt2);
-		var b2 = N3 / Math.pow(g2, t3);
-	
+		var b2 = N3 / Math.pow(g2, t3 / scale);
+
+		if(count++ < 10 && (dt1 !== 0 && dt2 !== 0) && (!isFinite(b1) || !isFinite(b2) || !isFinite(g1) || !isFinite(g2))) {
+			// https://chat.openai.com/c/d7dba69d-ba9a-42f5-911c-5058d02937ba - https://chat.openai.com/c/43c3faeb-25be-4e08-bfe8-434530ae19b6
+			var f = Math.pow(10, -([Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))].filter(f => f && Math.abs(f) !== 1)[0]));
+			console.log(`log_line_intersect: y[1-4] *= ${f}  - dt1: ${dt1}, dt2: ${dt2} ${[Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))]}`, js.copy_args(arguments));
+			var r = log_line_intersect(x1, y1*f, x2, y2*f, x3, y3*f, x4, y4*f, count, count);
+			r.sN1N2.y /= f;
+			console.log(` => x: ${r.sN1N2.x}, y: ${r.sN1N2.y}`);
+			return r;
+		}
+
 	/*- TODO find where (b1 * g1 ^ t) === (b2 * g2 ^ t) - for now cheating? */
 		var ts = [], delta;
 		if(t1 > t4) {
@@ -68,7 +78,7 @@ define(["locale"], Util => {
 			}
 		}
 		if(ts.length === 0) ts = [{}];
-	
+
 		return {
 			sN1N2: {x: ts[0].N1, y: ts[0].t}, ts: ts,
 			t1: t1, t2: t2, N1: N1, N2: N2, dt1: dt1, g1: g1, b1: b1,
