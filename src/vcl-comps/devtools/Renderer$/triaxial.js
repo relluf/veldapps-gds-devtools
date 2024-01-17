@@ -278,6 +278,16 @@ function setup_measurements(vars) {
 		if(stage === vars.stages.SH) {
 	 		mt.Ev_sc = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hi) / 50000;
 	 		mt.Ev_s = GDS.valueOf(mt, "Axial Strain (%)") / 100;
+	 		
+	 		// CIDc specific calculations
+	 		if(index > 0) {
+	 			// ∆𝑉s;n = 𝑉b;n-1 − 𝑉b;n
+	 			stage.dV = mt.dV = GDS.valueOf(arr[index - 1], "Back Volume") - GDS.valueOf(mt, "Back Volume");
+	 			
+	 			// Evols (%) = ∆𝑉s;n / (Vi - dVc) * 100
+	 			mt.Evols = mt.dV / (vars.V - vars.stages.CO.dV) * 100;
+	 		}
+	 		
 			// Filter Paper Correction
 			mt.d_o1_fp = (() => { 
 				/*-	(∆ σ1) fp = ε1 * Kfp * Pfp * O / (0.02 * Ac)
@@ -541,6 +551,12 @@ function setup_stages_2(vars) {
 			return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
 		})()
 	});
+	// js.mi((vars.stages.SH), {
+	// 	Vf: (() => {
+	// 		// 𝑉f = 𝑉0 − ∆𝑉c − ∆𝑉s
+	// 		return vars.V - vars.stages.CO.dV - vars.stages.SH.dV;
+	// 	})()
+	// })
 }
 function setup_mohr_coulomb(vars, root) {
 	const stage = vars.stages.SH;
@@ -734,9 +750,9 @@ function setup_parameters(vars) {
 	if(isNaN(vars.pf)) {
 		vars.pf = vars.mf / (Math.PI / 4 * vars.D * vars.D * vars.H - vars.stages.CO.dV - vars.stages.SH.dV * 0) * 1000;
 	}
-/*- E22 ρf;droog = m0;droog / (π/4 * D02 * H0) * 1000 * 1000 */
+/*- E22 ρf;droog = m0;droog / (π/4 * D0^2 * H0) * 1000 * 1000 */
 	if(isNaN(vars.pdf)) {
-		vars.pdf = vars.mdi / (Math.PI / 4 * vars.D * vars.D * vars.H + vars.stages.CO.dV + vars.stages.SH.dV * 0) * 1000;
+		vars.pdf = vars.mdi / (Math.PI / 4 * vars.D * vars.D * vars.H) * 1000;
 	}
 	
 	const meas_b = (st, name) => GDS.valueOf(vars.stages[st].b, name);
@@ -862,16 +878,18 @@ function refresh_mohr_coulomb_parameters(vars) {
 	if(vars.categories && vars.categories.length === 11) {
 		const flavors = ["max_q", "max_o_1o_3", "usr_Ev"];
 
-		for(let i = 8; i < 11; ++i) {
-			flavors.forEach(key => {
-				vars.categories[i].items.forEach(item => {
-					if(item.symbol && item.symbol.startsWith(".")) {
-						item.value = js.get(js.sf("stages.SH.%s.%s", key, 
-							item.symbol.substring(1)), vars)
-					}
-				});
-			})
-		}
+		// for(let i = 8; i < 11; ++i) {
+		// 	// flavors.forEach(key => {
+		// 		vars.categories[i].items.forEach((item, idx) => {
+		// 			if(item.symbol && item.symbol.startsWith(".")) {
+		// 				console.log(idx + "-" + key, 
+		// 					item.value = js.get(js.sf("stages.SH.%s.%s", key, 
+		// 						item.symbol.substring(1)), vars)
+		// 				);
+		// 			}
+		// 		});
+		// 	// })
+		// }
 		
 		vars.parameters
 			.filter(p => vars.categories.indexOf(p.category) >= 8)
@@ -1342,7 +1360,7 @@ const handlers = {
 			}, 250);
 		}
 	},
-
+	
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "CO";
@@ -1461,6 +1479,15 @@ const handlers = {
 	    renderChart_MohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
 	    	locale("Graph:ShearStress.title.stage-F"));
+	},
+	'#graph_VolumeChange_SS onRender'() {
+	    var vars = this.vars(["variables"]) || { stages: [] };
+	    var selected = "SH";
+	
+	    renderChart.call(this, vars, 
+	    	locale("Graph:VolumeChange_SS.title.stage-F"), 
+	    	locale("Graph:VolumeChange_SS.title.stage-F"), 
+	    	"dV", "Axial Strain (%)", selected);
 	},
 	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
@@ -1616,7 +1643,8 @@ const handlers = {
 			"WaterOverpressure",
 			"EffectiveHighStressRatio",
 			"ShearStress",
-			"DeviatorStressQ"
+			"DeviatorStressQ",
+			"VolumeChange_SS",
 		],
 		setup() {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
@@ -1664,6 +1692,21 @@ const handlers = {
 				})) return this.ud("#bar-user-inputs").render();
 				
 				sacosh.type = this.ud("#input-CO-type").getValue();
+				
+				var type = this.ud("#select-type").getValue();
+				// var type = js.get("overrides.inputs.select-type", vars);
+				// this.print("!!!!type: " + type);
+
+				// var type = js.get("inputs.select-type", vars.overrides);
+				this.ud("#tabs-graphs")
+					.getControls().filter(c => c instanceof Tab)
+					.forEach(tab => tab.print(js.sf("%s includes %s => %s", (tab.vars("types") || []).join("."), type, (tab.vars("types") || []).includes(type))));
+	
+				this.ud("#tabs-graphs")
+					.getControls().filter(c => c instanceof Tab)
+					.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
+
+
 			// })();
 			
 			// setup_casagrande(vars);
@@ -1673,6 +1716,7 @@ const handlers = {
 			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
 			setup_parameters(vars);
+
 		}
 	}
 }, [
@@ -1922,6 +1966,22 @@ const handlers = {
     		'>.{Group}': "display: block;"
     	}
     }, [
+    	// ["vcl/ui/PopupButton", {
+    	// 	content: locale("TriaxialTest.report") + " <i class='fa fa-chevron-down'></i>",
+    	// 	css: "position:absolute;left:0;top:0;",
+    	// 	popup: "popup-reports"
+    	// }],
+    	
+    	["vcl/ui/Group", {
+    		css: "position:absolute;left:4px;top:4px;",
+    	}, [
+	    	["vcl/ui/Element", { content: locale("TriaxialTest.type") + ": " }],
+	    	["vcl/ui/Select", ("select-type"), {
+	    		options: locale("TriaxialTest.types").map(type => ({value: type, content: type})),
+	    		value: "CIU"
+	    	}]
+    	]],
+    	
     	["vcl/ui/Group", [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
 	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(0,0,0); background-color: rgba(0,0,0,0.05);" }],
@@ -2113,14 +2173,15 @@ const handlers = {
 			}
 		}
 	}, [
-		["vcl/ui/Tab", { text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true } }],
-		["vcl/ui/Tab", { text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation" }],
-		["vcl/ui/Tab", { text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress" }],
-		["vcl/ui/Tab", { text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure" }],
-		["vcl/ui/Tab", { text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio" }],
-		["vcl/ui/Tab", { text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ" }],
-		["vcl/ui/Tab", { text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true } }],
-		["vcl/ui/Tab", { text: locale("Graph:Taylor"), control: "graph_Taylor", visible: false }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange_SS"), control: "graph_VolumeChange_SS", vars: { types: ["CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:Taylor"), control: "graph_Taylor", vars: { types: [ "CIDc"] } }],
 
 		["vcl/ui/Bar", ("menubar"), { align: "right", autoSize: "both", classes: "nested-in-tabs" }, [
 			["vcl/ui/Button", ("button-edit-graph"), { 
@@ -2163,6 +2224,35 @@ const handlers = {
 					return modified === true;
 				}
 			}
+		}],
+		["vcl/ui/Panel", ("graph_VolumeChange_SS"), {
+			align: "client", visible: false, 
+			classes: "single",
+			// vars: {
+			// 	TrendLineEditor_stop(vars, stage, chart, owner) {
+			// 		var modified;
+			// 		chart.trendLines.forEach((tl, index) => {
+			// 			if(tl && tl.modified) {
+			// 				modified = true;
+			// 				tl.lineThickness = 1;
+			// 				tl.draw();
+				
+			// 				var line = {
+			// 					initialXValue: tl.initialXValue,
+			// 					initialValue: tl.initialValue,
+			// 					finalXValue: tl.finalXValue,
+			// 					finalValue: tl.finalValue
+			// 				};
+					
+			// 				js.set(js.sf("overrides.graphs.VolumeChange.lines.%s", index), line, vars);
+			// 			}
+			// 		});
+			// 		if(modified) {
+			// 			// TODO what to update here instead of:  stage.isotachen.update();
+			// 		}
+			// 		return modified === true;
+			// 	}
+			// }
 		}],
 		["vcl/ui/Panel", ("graph_PorePressureDissipation"), {
 			align: "client", visible: false, 
