@@ -69,9 +69,13 @@ const handlers = {
 };
 
 const escape = (s) => js.sf("\"%s\"", ("" + s).replace(/"/g, "\\\""));
-const downloadCSV = (arr, filename) => {
-	const headers = Object.keys(arr[0]);
-	const data = [headers.map(s => escape(s))].concat(arr.map(o => headers.map(h => escape(o[h]))));
+const downloadCSV = (list, filename) => {
+	const arr = list.getSource().getObjects(), headers = [];
+	arr.forEach(row => Object.keys(row).forEach(
+		key => list.getColumnByAttribute(key).isVisible() && 
+			!headers.includes(key) ? headers.push(key) : null));
+	
+	const data = [headers.map(s => escape(s))].concat(arr.map(o => headers.map(h => escape(o[h] === undefined ? "" : js.nameOf(o[h])))));
 	const csv = data.map(row => row.join(',')).join('\n');
 	const blob = new Blob([csv], { type: 'text/csv' });
 	const url = URL.createObjectURL(blob);
@@ -211,6 +215,12 @@ const downloadCSV = (arr, filename) => {
     	}
     }],
 
+
+	["vcl/Action", ("focus-q"), {
+		hotkey: "MetaCtrl+191",
+		on() { this.ud("#q").setFocus(); }
+	}],
+
 	["vcl/data/Array", ("array-measurements"), {
 		onLoad() {
 			var gan = this.getAttributeNames;
@@ -279,7 +289,7 @@ const downloadCSV = (arr, filename) => {
 					const arr = list.getSource();
 					const name = arr.getName().split("-").pop();
 					
-					downloadCSV(arr.getArray(), name + ".csv");
+					downloadCSV(list, name + ".csv");
 				}
 			}
 		}],
@@ -323,7 +333,7 @@ const downloadCSV = (arr, filename) => {
 			    		measurements._controls.forEach(r => r.setState("classesInvalidated", true));
 						measurements._columns.map(
 							column => column.setVisible(
-								!attrs || attrs.filter(a => a).some(a => column._attribute.includes(a))
+								!attrs || attrs.filter(a => a).some(a => a.endsWith(" ") ? column._attribute === a.trim() : column._attribute.includes(a))
 							)
 						);
 

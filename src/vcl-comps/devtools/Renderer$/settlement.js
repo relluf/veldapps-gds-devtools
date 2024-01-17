@@ -350,6 +350,7 @@ const handlers = {
 			var data = vars.bjerrum.data_e;
 			var points = vars.bjerrum.points_e;
 			var LLi_e = vars.bjerrum.LLi_e;
+			var min_X = data.reduce((m, s) => (m = Math.min(m, s.x)), Number.MAX_SAFE_INTEGER);
 			var trendLines = [{
 				initialXValue: LLi_e.sN1N2.x, initialValue: LLi_e.sN1N2.y,
 				finalXValue: LLi_e.sN1N2.x, finalValue: 100,
@@ -387,7 +388,7 @@ const handlers = {
 			}
 	
 			this.vars("am", { series: series, data: data });
-			
+
 			makeChart(this, { 
 				type: "xy",
 				trendLines: trendLines,
@@ -399,7 +400,7 @@ const handlers = {
 					}]
 			    }, {
 					position: "bottom", title: "Belasting [kPa] → ",
-					logarithmic: true, minimum: 5,
+					logarithmic: true, minimum: min_X * 0.9,
 					guides: [{
 						position: "top",
 						value: LLi_e.sN1N2.x, inside: true, lineAlpha: 0,
@@ -416,6 +417,7 @@ const handlers = {
 			var data = vars.bjerrum.data_rek;
 			var points = vars.bjerrum.points_rek;
 			var LLi_rek = vars.bjerrum.LLi_rek;
+			var min_X = data.reduce((m, s) => (m = Math.min(m, s.x)), Number.MAX_SAFE_INTEGER);
 			var trendLines = [{
 				initialXValue: LLi_rek.sN1N2.x, initialValue: LLi_rek.sN1N2.y,
 				finalXValue: LLi_rek.sN1N2.x, finalValue: 0,
@@ -465,7 +467,7 @@ const handlers = {
 					}]
 			    }, {
 					position: "bottom", title: "Belasting [kPa] → ",
-					logarithmic: true, minimum: 5,
+					logarithmic: true, minimum: min_X * 0.9,
 					guides: [{
 						position: "top",
 						value: LLi_rek.sN1N2.x, inside: true, lineAlpha: 0,
@@ -566,6 +568,11 @@ const handlers = {
 			var serie2 = vars.koppejan.serie2;
 			var trendLines = GDS.cp(vars.koppejan.trendLines);
 			var LLi_1 = vars.koppejan.LLi_1;
+			var max_X = vars.stages.reduce((m, s) => (m = Math.max(m, s.target)), 0);
+			
+			if(max_X < 10000) {
+				max_X = Math.max(1000, max_X > 500 ? 10000 : max_X);
+			}
 			
 			this.vars("am", { series: series, data: vars.measurements.slice(1) });
 			
@@ -583,7 +590,7 @@ const handlers = {
 					}],
 				}, {
 					id: "x1", title: "Duur [dagen] → ", position: "bottom", 
-					logarithmic: true, minimum: 0.01, maximum: 1000
+					logarithmic: true, minimum: 0.01, maximum: max_X
 				}, {
 					id: "x2", _title: "Belasting [kPa] → ", position: "top",
 					synchronizeWith: "x1", synchronizationMultiplier: 1,
