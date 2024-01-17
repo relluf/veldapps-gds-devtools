@@ -1025,7 +1025,7 @@ function calc_dH(vars, stage) {
 			m.y = (m.y_casagrande = m.z * 1000);
 		});
 		calc_derivatives(vars.measurements);
-	
+
 		vars.stages.forEach((stage, index) => { try {
 	
 		/*- determine AB & DEF (https://chat.openai.com/c/77902a83-0285-46f4-bc11-264c7a2a0974) */
@@ -1051,7 +1051,7 @@ function calc_dH(vars, stage) {
 				idx++;
 			}
 			
-			/*- VA-20240111-1 at least 4 points are needed */
+			/*- 20240111 at least 4 points are needed */
 			while(vpnn.length > 0 && vpnn.length < 4) {
 				vpnn.push(vpnn[vpnn.length - 1]);
 			}
@@ -1430,7 +1430,7 @@ function calc_dH(vars, stage) {
 	}
 	function setup_bjerrum(vars) {
 		// everything is already setup except for poriengetal (e)
-	
+
 		var points_e, points_rek, LLi_e, LLi_rek;
 		var data_e = vars.stages.map(stage => ({ x: stage.target, y: stage.e0 }));
 		var data_rek = vars.stages.map(stage => ({ x: stage.target, y: stage.EvC }));
