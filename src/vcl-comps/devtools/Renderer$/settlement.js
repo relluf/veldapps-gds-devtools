@@ -1278,7 +1278,7 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
                 content: "Opmerking"
             }],
             ["vcl/ui/Input", "option_description", {
-                placeholder: ""
+                value: "geen"
             }]
         ]],
         ["vcl/ui/Group", ("group_buttons"), {
@@ -1296,16 +1296,17 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
                 content: "Staat van het monster"
             }],
             ["vcl/ui/Input", "option_state", {
-                // placeholder: "schaal 1:{schaal}"
+                value: "Ongeroerd"
             }]
         ]],
         ["vcl/ui/Group", ("group_preparation"), {}, [
             ["vcl/ui/Element", {
                 classes: "header",
-                content: "Preparatiemethode"
+                content: "Preparatiemethode",
             }],
             ["vcl/ui/Input", "option_preparation", {
-                placeholder: ""
+                placeholder: "",
+                value: "Overgeschoven"
             }]
         ]],
         ["vcl/ui/Group", { classes: "seperator" }],
