@@ -12,7 +12,14 @@ define((require) => ({
 		"Consolidated":							"Geconsolideerde",
 		"Drianed":								"Gedraineerde",
 		"Undrianed":							"Ongedraineerde",
-		"TriaxialTest":							"Triaxiaalproef",
+		"TriaxialTest": {
+			'': 								"Triaxiaalproef",
+			
+			'.type':							"Proeftype",
+			'.types': [[
+				"CIUc", "CIDc"
+			]]
+		},
 		"NEN-EN-ISO":							"NEN-EN-ISO 17892-9:2018",
 		
 		"DrainUsed#": {
@@ -68,7 +75,11 @@ define((require) => ({
 			"MohrCoulomb": {
 				"":								"Mohr-Coulomb",
 				".title.stage-F":				"schuifspanning [kN/m2] / effectieve spanning [kN/m2] →"
-			}
+			},
+			"VolumeChange_SS": {
+				"":								"Volumeverandering (2)",
+				".title.stage-F":				"Trap %s: volumeverandering [cm3] / axiale rek [%%] →"
+			},
 		},
 		"Section:": {
 			"General": {
@@ -106,21 +117,21 @@ define((require) => ({
 				"-diameter":				{	'': "Diameter", 					'.unit': "mm",		'.symbol': "D"		},
 				"-surface":					{	'': "Oppervlakte",					'.unit': "mm",		'.symbol': "Ai"		},
 				"-volume":					{	'': "Volume",						'.unit': "cm3",		'.symbol': "Vi"		},
-				"-sampleMassWet":			{	'': "Massa proefstuk nat",			'.unit': "g",		'.symbol': "mi"	},
+				"-sampleMassWet":			{	'': "Massa proefstuk nat",			'.unit': "g",		'.symbol': "mi"		},
 				"-sampleMassDry":			{	'': "Massa proefstuk droog",		'.unit': "g",		'.symbol': "mdi"	},
-				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pi"	}, // volumieke massa
+				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pi"		}, // volumieke massa
 				"-densityDry":				{	'': "Dichtheid droog",				'.unit': "Mg/m3",	'.symbol': "pdi"	}, // droge volumieke massa
 				"-waterContent":			{	'': "Watergehalte", 				'.unit': "%",		'.symbol': "wi"		},
 				"-saturation":				{	'': "Verzadigingsgraad",			'.unit': "%",		'.symbol': "Sri"	},
-				"-grainDensity":			{	'': "Korreldichtheid",				'.unit': "Mg/m3",	'.symbol': "ps"	},
+				"-grainDensity":			{	'': "Korreldichtheid",				'.unit': "Mg/m3",	'.symbol': "ps"		},
 				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"		},
 			},
 			"Final": {
 				".title":						"Uiteindelijke waarden",
-				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pf"	}, // volumieke massa
+				"-densityWet":				{	'': "Dichtheid nat",				'.unit': "Mg/m3",	'.symbol': "pf"		}, // volumieke massa
 				"-densityDry":				{	'': "Dichtheid droog",				'.unit': "Mg/m3",	'.symbol': "pdf"	}, // droge volumieke massa
 				"-waterContent":			{	'': "Watergehalte", 				'.unit': "%",		'.symbol': "wf"		},
-				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"	},
+				"-poreNumber":				{	'': "Poriëngetal",					'.unit': "-",		'.symbol': "e0"		},
 			},
 			"Photos": {
 				".title":						"Foto's"
@@ -180,17 +191,18 @@ define((require) => ({
 				"-axialStrainNN%":			{	'': "Bij %s%% axial rek" },
 
 				"-axialStrain": 			{	'': "Axiale rek",					'.unit': "%",		'.symbol': ".Ev" },
-				"-deviatorStressCorrected": {	'': "Gecorrigeerde deviatorspanning",'.unit': "kPa",		'.symbol': ".q_corr" },
+				"-deviatorStressCorrected": {	'': "Gecorrigeerde deviatorspanning",'.unit': "kPa",	'.symbol': ".q_corr" },
 				"-effectiveHorizontalStress":{	'': "Effectieve horizontale spanning",'.unit': "kPa",	'.symbol': ".o_3" },
 				"-effectiveVerticalStress":	{	'': "Effectieve verticale spanning",'.unit': "kPa",		'.symbol': ".o_1" },
 				"-sigma1/3":				{	'': "σ'1/σ'3",						'.unit': "-",		'.symbol': ".o_1o_3" },
-				"-s_":						{	'': "s'",							'.unit': "kPa",		'.symbol': ".s_" },// 43.82 54.31 90.96
-				"-t":						{	'': "t",							'.unit': "kPa",		'.symbol': ".t" },// 45.18 44.16 67.55
+				"-s_":						{	'': "s'",							'.unit': "kPa",		'.symbol': ".s_" },
+				"-t":						{	'': "t",							'.unit': "kPa",		'.symbol': ".t" },
 				"-phi_": 					{	'': "φ'",							'.unit': "degs",	'.symbol': ".mohr.phi_" },
 				"-c_":						{	'': "c'",							'.unit': "kPa",		'.symbol': ".mohr.c_" },
 				"-a":						{	'': "a",							'.unit': "-",		'.symbol': ".mohr.a" },
 				"-b":						{	'': "b",							'.unit': "-",		'.symbol': ".mohr.b" },
 				"-e50und":					{	'': "E50.und",						'.unit': "MPa",		'.symbol': ".e50und"},
+				"-phi_s":					{	'': "φ's",							'.unit': "degs",	'.symbol': ".mohr.phi_s"},
 
 				"-max_q":					{	'': "Mohr-Coulomb parameters bij maximale deviatorspanning" },
 				"-max_o13":					{	'': "Mohr-Coulomb parameters bij maximale hoofdspanningsverhouding σ'1/σ'3" },

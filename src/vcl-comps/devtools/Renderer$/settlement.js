@@ -388,7 +388,7 @@ const handlers = {
 			}
 	
 			this.vars("am", { series: series, data: data });
-
+			
 			makeChart(this, { 
 				type: "xy",
 				trendLines: trendLines,
@@ -573,7 +573,7 @@ const handlers = {
 			if(max_X < 10000) {
 				max_X = Math.max(1000, max_X > 500 ? 10000 : max_X);
 			}
-			
+
 			this.vars("am", { series: series, data: vars.measurements.slice(1) });
 			
 			makeChart(this, { 
@@ -635,7 +635,7 @@ function setup_koppejan(vars) {
 	var slope_variant = 2;
 	var rlines = [];
 
-	// serie2 references only the (7) points where y2 are set, and will its z10, z100, z1000, z10000 values will be calculated later on (references the last measurements of each stage)
+	// serie2 references only the (7) points where y2 are set, and its ez10, ez100, ez1000, ez10000 values will be calculated later on (references the last measurements of each stage)
 	serie2 = vars.stages.map(stage => stage.measurements[stage.measurements.length - 1]);
 	serie2.forEach(m => m.y2 = m[GDS.key_as]); // koppejan
 
@@ -656,10 +656,10 @@ function setup_koppejan(vars) {
 			]), { precision: 9 } )
 		};
 
-		/* copy lr info to slope */
+		/* copy lr info to slope - 20240122 adds feature to override RC/NP */
 		var rl = slope.regression_linear;
-		slope.rc = rl.equation[0];
-		slope.np = rl.equation[1];
+		slope.rc = js.get("KJ_slopes." + s + ".rc", window) || rl.equation[0];
+		slope.np = js.get("KJ_slopes." + s + ".np", window) || rl.equation[1];
 		slopes.push(slope);
 
 		/* extrapolate next stage */
@@ -677,38 +677,28 @@ function setup_koppejan(vars) {
 				obj['x' + (s + 3)] = (t - t1) || GDS.treatZeroAs;
 				
 				// superpositiebeginsel: vz2(ta-t1) = z1(ta-t1) + z2(ta-t1).
-				obj.z1 = slope.np + slope.rc * Math.log10(t); // previous stages extrapolated
+				obj.z1 = slope.np + slope.rc * Math.log10(t); // previous stage extrapolated
 				obj.z2 = obj[y] - obj.z1; // (actual measurement) - z1 => z2
 
-				// calculate "verschoven zetting" 
+				// ...calculate "verschoven zetting" - maps onto vzN(t-t[N-1]) in SPN-Excel
 				obj.vz0 = obj[y];
 				slopes.slice(0, s + 1).forEach((slope, i) => {
-					/* 2021/04/27 s.paznoriega@gmail.com
-						- vz4(t-3) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-									+ rc2 log((t-2) / (t-1)) 
-									+ rc3 log((t-3) / (t-2))
-						- vz3(t-2) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-									+ rc2 log((t-2) / (t-1)) 
-						- vz2(t-1) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-
-					 * CUR pagina 41
-						= z(t)  + rc1 (log(t-t1) - log(t)) 
-        						+ rc2 (log(t-t2) - log(t-t1)) 
-        						+ rc3 (log(t-t3) - log(t-t2)) 	
-        						
-						= z(t)	+ rc1·[log (t-t1) - log(t)] 
-								+ rc2·[log (t-t2) - log(t-t1)] 
-								+ rc3·[log (t-t3) - log(t-t2)] 
-								+ .. 
-								+ rc(n-2)·[log(t-t(n-2)) - log(t-tn-3)]
-								+ rc(n-1)·[log(t-t(n-1)) - rc(n-1)·log(t-t(n-2))] <<< ????
-					*/
-					obj.vz0 += (obj['vz0_'+(i+1)] = slope.rc * (Math.log10( (t-(i+1)) / (t-i))));
-					// obj.vz0 += (obj['vz0_'+(i+1)] = slope.rc * (Math.log10( (t-i) / (t-(i+1)))));
+					obj.vz0 += (obj['vz0_' + (i + 1)] = slope.rc * (Math.log10( (t-(i+1)) / (t-i))));
 				});
+			});
+			
+			/* for each measurement in current stage... */
+			z1.forEach((obj, i) => {
+				// if(!i) return; // skip the first (t - t1 === 0)
+				
+				var t = obj.daysT + 1; // time in days since begin of Test (> t1)
+
+				// ...calculate "geëxtrapoleerde zetting" - maps onto extrpN(t) in SPN-Excel
+				var n = s;
+				obj.ez = slopes[n].np + slopes[n].rc * Math.log10(t > n ? t - n : 1);
+				while(t > n && n--) { // extrapoleer voor t > t(n) (zie: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202401/20240110-104245-rzxRdl.png)
+					obj.ez += slopes[n].rc * (Math.log10( ((t - n) / (t - (n + 1)) )));
+				}
 			});
 		}
 	});
@@ -719,8 +709,8 @@ function setup_koppejan(vars) {
 		var LLi_1, points;	
 		var trendLines = slopes.map((S, i, slopes) => {
 	
-			function extrp(n, days) {
-				/* 2021/04/27 SPN:
+			function extrp(n, t) {
+				/* 2021/04/27 SPN: (https://chat.openai.com/share/95a6fa34-25eb-4f10-9fd4-658de99b026a / https://chat.openai.com/c/1366a171-07fd-4007-bafa-fe090f42ee18 -- used to verify correctness)
 				    - extrp4(t-3) 
 					    = np4	+ rc1 log((t-0) / (t-1)) 
 					    		+ rc2 log((t-1) / (t-2)) 
@@ -742,32 +732,25 @@ function setup_koppejan(vars) {
 							+ rc(n-1) * [log (t-t(n-2)) - log (t-t(n-1))]
 							+ rc(n) *    log (t-t(n-1))
 				*/
-				var ez = S.np; // S is the current slope
-				if(n >= 1) {
-					if(n) days += (n - 1); // TODO avoids dividing by 0
-					slopes.slice(0, n - 1).forEach((slope, i) =>  // loops through previous slopes/stages
-						ez += slope.rc * (Math.log10( ((days - i) / (days - (i + 1)) )))
-					);
+				// if(t === 1) return slopes[n].last[GDS.key_d]; // uncomment to return settlement after 1 day
+				
+				var ez = slopes[n].np + slopes[n].rc * Math.log10(t > n ? t - n : 1);
+				while(t > n && n--) { // extrapoleer voor t > t(n) (zie: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202401/20240110-104245-rzxRdl.png)
+					ez += slopes[n].rc * (Math.log10( ((t - n) / (t - (n + 1)) )));
 				}
-				return (ez += S.rc * Math.log10(days));
+				return ez;
 			}
-	
+			
 			serie2[i].ez1 = extrp(i, 1);
 			serie2[i].ez10 = extrp(i, 10);
 			serie2[i].ez100 = extrp(i, 100);
 			serie2[i].ez1000 = extrp(i, 1000);
 			serie2[i].ez10000 = extrp(i, 10000);
 			
-			// serie2[i].vz1 = S.np + S.rc * Math.log10(1);
-			// serie2[i].vz10 = S.np + S.rc * Math.log10(10);
-			// serie2[i].vz100 = S.np + S.rc * Math.log10(100);
-			// serie2[i].vz1000 = S.np + S.rc * Math.log10(1000);
-			// serie2[i].vz10000 = S.np + S.rc * Math.log10(10000);
-			
 			return [{
 				initialXValue: 1, initialValue: S.np,
-				finalXValue: 20, finalValue: S.np + S.rc * Math.log10(20),
-				lineAlpha: 1, lineColor: "black", dashLength: 3
+				finalXValue: 2000, finalValue: S.np + S.rc * Math.log10(2000),
+				lineAlpha: 1, lineColor: "gray", dashLength: 3
 			}];
 		});
 		if((points = js.get("overrides.koppejan.points_pg", vars))) {
@@ -830,15 +813,17 @@ function setup_koppejan(vars) {
 		
 		/*- calculate Cp, Cs, C, C10, ...  */
 	
-		var cp, Pg = LLi_1.sN1N2.x, sig = GDS.key_as;
+		var sig = GDS.key_as;
 		vars.stages.forEach((stage, st) => {
 			/* 1. 1/Cp = d Ev / ln( ov + dov / ov )	*/
 			stage.koppejan = slopes[st];
 	
 			if(st === vars.stages.length - 1) return;
 			
-			var d = Math.log(serie2[st + 1][sig] / serie2[st + 0][sig]);
-			var d10 = Math.log10(serie2[st + 1][sig] / serie2[st + 0][sig]);
+			var d = Math.log(vars.stages[st + 1].target / stage.target);
+			var d10 = Math.log10(vars.stages[st + 1].target / stage.target); 
+			// var d = Math.log(serie2[st + 1][sig] / serie2[st + 0][sig]);
+			// var d10 = Math.log10(serie2[st + 1][sig] / serie2[st + 0][sig]);
 			var H = vars.Hi;
 	
 			var Cp = 1 / (((serie2[st + 1].ez1 - serie2[st + 0].ez1) / H) / d);
@@ -1030,11 +1015,11 @@ function setup_parameters(root, vars, headerValue) {
 	}, {
 		name: "Koppejan - Zetting (geëxtrapoleerde)",
 		items: [
-			{ name: "1 dag", unit: "mm", symbol: "ez1", value: vars.koppejan.serie2.map(o => o.ez1).join(" ") },
-			{ name: "10 dagen", unit: "mm", symbol: "ez10", value: vars.koppejan.serie2.map(o => o.ez10).join(" ") },
-			{ name: "100 dagen", unit: "mm", symbol: "ez100", value: vars.koppejan.serie2.map(o => o.ez100).join(" ") },
-			{ name: "1000 dagen", unit: "mm", symbol: "ez1000", value: vars.koppejan.serie2.map(o => o.ez1000).join(" ") },
-			{ name: "10000 dagen", unit: "mm", symbol: "ez10000", value: vars.koppejan.serie2.map(o => o.ez10000).join(" ") },
+			{ name: "1 dag", unit: "mm", symbol: "ez1", value: vars.koppejan.serie2.map(o => o.ez1.toFixed(4)).join(" ") },
+			{ name: "10 dagen", unit: "mm", symbol: "ez10", value: vars.koppejan.serie2.map(o => o.ez10.toFixed(4)).join(" ") },
+			{ name: "100 dagen", unit: "mm", symbol: "ez100", value: vars.koppejan.serie2.map(o => o.ez100.toFixed(4)).join(" ") },
+			{ name: "1000 dagen", unit: "mm", symbol: "ez1000", value: vars.koppejan.serie2.map(o => o.ez1000.toFixed(4)).join(" ") },
+			{ name: "10000 dagen", unit: "mm", symbol: "ez10000", value: vars.koppejan.serie2.map(o => o.ez10000.toFixed(4)).join(" ") },
 		]
 	}, {
 		name: "Koppejan - Parameters",
@@ -1283,7 +1268,7 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
                 content: "Opmerking"
             }],
             ["vcl/ui/Input", "option_description", {
-                placeholder: ""
+                value: "geen"
             }]
         ]],
         ["vcl/ui/Group", ("group_buttons"), {
@@ -1301,16 +1286,17 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
                 content: "Staat van het monster"
             }],
             ["vcl/ui/Input", "option_state", {
-                // placeholder: "schaal 1:{schaal}"
+                value: "Ongeroerd"
             }]
         ]],
         ["vcl/ui/Group", ("group_preparation"), {}, [
             ["vcl/ui/Element", {
                 classes: "header",
-                content: "Preparatiemethode"
+                content: "Preparatiemethode",
             }],
             ["vcl/ui/Input", "option_preparation", {
-                placeholder: ""
+                placeholder: "",
+                value: "Overgeschoven"
             }]
         ]],
         ["vcl/ui/Group", { classes: "seperator" }],

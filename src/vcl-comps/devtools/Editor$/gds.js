@@ -72,7 +72,8 @@ const escape = (s) => js.sf("\"%s\"", ("" + s).replace(/"/g, "\\\""));
 const downloadCSV = (list, filename) => {
 	const arr = list.getSource().getObjects(), headers = [];
 	arr.forEach(row => Object.keys(row).forEach(
-		key => list.getColumnByAttribute(key).isVisible() && 
+		key => list.getColumnByAttribute(key) && 
+			list.getColumnByAttribute(key).isVisible() && 
 			!headers.includes(key) ? headers.push(key) : null));
 	
 	const data = [headers.map(s => escape(s))].concat(arr.map(o => headers.map(h => escape(o[h] === undefined ? "" : js.nameOf(o[h])))));

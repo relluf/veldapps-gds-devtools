@@ -278,6 +278,16 @@ function setup_measurements(vars) {
 		if(stage === vars.stages.SH) {
 	 		mt.Ev_sc = GDS.valueOf(mt, "Axial Displacement") / (vars.Hi - vars.stages.CO.Hi) / 50000;
 	 		mt.Ev_s = GDS.valueOf(mt, "Axial Strain (%)") / 100;
+	 		
+	 		// CIDc specific calculations
+	 		if(index > 0) {
+	 			// ∆𝑉s;n = 𝑉b;n-1 − 𝑉b;n
+	 			stage.dV = mt.dV = GDS.valueOf(arr[index - 1], "Back Volume") - GDS.valueOf(mt, "Back Volume");
+	 			
+	 			// Evols (%) = ∆𝑉s;n / (Vi - dVc) * 100
+	 			mt.Evols = mt.dV / (vars.V - vars.stages.CO.dV) * 100;
+	 		}
+	 		
 			// Filter Paper Correction
 			mt.d_o1_fp = (() => { 
 				/*-	(∆ σ1) fp = ε1 * Kfp * Pfp * O / (0.02 * Ac)
@@ -541,6 +551,12 @@ function setup_stages_2(vars) {
 			return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
 		})()
 	});
+	// js.mi((vars.stages.SH), {
+	// 	Vf: (() => {
+	// 		// 𝑉f = 𝑉0 − ∆𝑉c − ∆𝑉s
+	// 		return vars.V - vars.stages.CO.dV - vars.stages.SH.dV;
+	// 	})()
+	// })
 }
 function setup_mohr_coulomb(vars, root) {
 	const stage = vars.stages.SH;
@@ -597,23 +613,22 @@ function setup_mohr_coulomb(vars, root) {
     	js.$[root.ud("#select-sample-2").getValue()], 
     	js.$[root.ud("#select-sample-3").getValue()]
     ]
-    	.filter(o => o)
-    	.map(n => n.qs("devtools/Editor<gds>:root"))
-    	.map(r => r.vars(["variables.stages.SH"]))
+    	.map(n => n && n.qs("devtools/Editor<gds>:root"))
+    	.map(r => r && r.vars(["variables.stages.SH"]))
     	.filter(o => o);
-    	
-    if(shss.length !== 3) return;// root.print("mohr canceled", root.vars(["resource.uri"]));
+
+    // if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
-		const x = [shss[0][k].mt.ens_s_,	shss[1][k].mt.ens_s_,	shss[2][k].mt.ens_s_];
-		const y = [shss[0][k].mt.ss_t,		shss[1][k].mt.ss_t,		shss[2][k].mt.ss_t];
+		const x = shss.map(e => e[k].mt.ens_s_);
+		const y = shss.map(e => e[k].mt.ss_t);
 		const mohr = GDS.calc_slopeAndYIntercept(x, y);
 
 		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
 		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
-		
-		for(var s = 0; s < 3; ++s) {
+
+		for(var s = 0; s < shss.length; ++s) {
 			shss[s][k].mohr = js.mi(mohr);
 
 			js.mi(shss[s][k].mohr, {
@@ -622,6 +637,10 @@ function setup_mohr_coulomb(vars, root) {
 				y: 0
 			});
 			
+			// phi's = sin-1 ((o_1 - o_3) / (o_1 + o_3))
+			// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202312/20231206-140003-hNI8V2.png
+			shss[s][k].mohr.phi_s = Math.asin((shss[s][k].o_1 - shss[s][k].o_3) / (shss[s][k].o_1 + shss[s][k].o_3)) * (180 / Math.PI);
+
 			shss[s][k].mohr.serie = (() => {
 				var center = shss[s][k].mohr;
 				var radius = shss[s][k].mohr.r;
@@ -731,9 +750,9 @@ function setup_parameters(vars) {
 	if(isNaN(vars.pf)) {
 		vars.pf = vars.mf / (Math.PI / 4 * vars.D * vars.D * vars.H - vars.stages.CO.dV - vars.stages.SH.dV * 0) * 1000;
 	}
-/*- E22 ρf;droog = m0;droog / (π/4 * D02 * H0) * 1000 * 1000 */
+/*- E22 ρf;droog = m0;droog / (π/4 * D0^2 * H0) * 1000 * 1000 */
 	if(isNaN(vars.pdf)) {
-		vars.pdf = vars.mdi / (Math.PI / 4 * vars.D * vars.D * vars.H + vars.stages.CO.dV + vars.stages.SH.dV * 0) * 1000;
+		vars.pdf = vars.mdi / (Math.PI / 4 * vars.D * vars.D * vars.H) * 1000;
 	}
 	
 	const meas_b = (st, name) => GDS.valueOf(vars.stages[st].b, name);
@@ -752,7 +771,8 @@ function setup_parameters(vars) {
 			["c_"],
 			["a"],
 			["b"],
-			["e50und"]
+			["e50und"],
+			["phi_s"]
 		];
 
 	const adjustC = (type, key, value) => (c) => {
@@ -858,16 +878,18 @@ function refresh_mohr_coulomb_parameters(vars) {
 	if(vars.categories && vars.categories.length === 11) {
 		const flavors = ["max_q", "max_o_1o_3", "usr_Ev"];
 
-		for(let i = 8; i < 11; ++i) {
-			flavors.forEach(key => {
-				vars.categories[i].items.forEach(item => {
-					if(item.symbol && item.symbol.startsWith(".")) {
-						item.value = js.get(js.sf("stages.SH.%s.%s", key, 
-							item.symbol.substring(1)), vars)
-					}
-				});
-			})
-		}
+		// for(let i = 8; i < 11; ++i) {
+		// 	// flavors.forEach(key => {
+		// 		vars.categories[i].items.forEach((item, idx) => {
+		// 			if(item.symbol && item.symbol.startsWith(".")) {
+		// 				console.log(idx + "-" + key, 
+		// 					item.value = js.get(js.sf("stages.SH.%s.%s", key, 
+		// 						item.symbol.substring(1)), vars)
+		// 				);
+		// 			}
+		// 		});
+		// 	// })
+		// }
 		
 		vars.parameters
 			.filter(p => vars.categories.indexOf(p.category) >= 8)
@@ -881,6 +903,15 @@ function refresh_mohr_coulomb_parameters(vars) {
 	}
 }
 
+function select_colors(root) {
+	return [
+    	js.$[root.qs("#select-sample-1").getValue()], 
+    	js.$[root.qs("#select-sample-2").getValue()], 
+    	js.$[root.qs("#select-sample-3").getValue()]
+    ]
+    	.map((c, i) => c ? GDS.colors[i] : null)
+    	.filter(v => v);
+}
 function getSampleMeasurements(comp, vars, dontRefresh) {
 	const refresh = (node) => { // HACKER-THE-HACK but seems to work nicely
 		node.setTimeout("refresh", () => {
@@ -904,13 +935,13 @@ function getSampleMeasurements(comp, vars, dontRefresh) {
     	.map(arr => arr && arr.getArray())
     	.filter(arr => arr);
 
-    if(sampleMeasurements[0][0].txVC === undefined) {
+    if(sampleMeasurements[0] && sampleMeasurements[0][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[0]);
     }
-    if(sampleMeasurements[1][0].txVC === undefined) {
+    if(sampleMeasurements[1] && sampleMeasurements[1][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[1]);
     }
-    if(sampleMeasurements[2][0].txVC === undefined) {
+    if(sampleMeasurements[2] && sampleMeasurements[2][0].txVC === undefined) {
     	return !dontRefresh && refresh(nodes[2]);
     }
     
@@ -1047,6 +1078,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     	js.$[this.ud("#select-sample-2").getValue()], 
     	js.$[this.ud("#select-sample-3").getValue()]
     ]
+    	.filter(v => v)
     	.map(node => node.qs("devtools/Editor<>:root").vars("variables.stages." + selected))
     	.map(stage => stage.measurements);
 
@@ -1072,7 +1104,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	const all = Object.keys(index).map(key => index[key]);
 	const stageMeasurements = vars.stages.map((st, i) => all
 			.filter(mt => remove === false || [1, 2, 3].every(i => mt.hasOwnProperty("mt_" + i)))
-			.filter(mt => [1, 2, 3].every(i => js.get("mt_" + i + ".disabled", mt) !== true)));
+			.filter(mt => sampleMeasurements.every((a, i) => js.get("mt_" + (i+1) + ".disabled", mt) !== true)));
 			
 	if(typeof opts === "function") {
 		opts = opts({
@@ -1101,7 +1133,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
         makeChart(this, {
             immediate: true,
             node: this.getChildNode(st),
-            colors: GDS.colors,
+            colors: select_colors(this.up(), GDS.colors),
             trendLines: opts.trendLines || [],
             valueAxes: [
             	extopt("valueAxes.y1", {
@@ -1119,7 +1151,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
 	         ]
         });
         
-		this.getChildNode(st).qs("svg")._description = series[0].title;
+		if(series.length) this.getChildNode(st).qs("svg")._description = series[0].title;
 
         if (++st < render_stages.length) {
             this.nextTick(render);
@@ -1156,9 +1188,10 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     	js.$[this.ud("#select-sample-2").getValue()], 
     	js.$[this.ud("#select-sample-3").getValue()]
     ]
+    	.filter(n => n)
     	.map(n => n.qs("devtools/Editor<gds>:root"))
     	.map(r => r.vars(["variables.stages.SH"]))
-    	.filter(o => o);
+    	.filter(o => o && o.usr_Ev.mohr);
 	
 	const measurements = shss.map(ss => ss.usr_Ev.mohr.serie).flat().sort((i1, i2) => {
 		return i1.x < i2.x ? -1 : i1.x === i2.x ? 0 : 1;
@@ -1175,39 +1208,55 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
         stage: "SH",
         data: measurements
     });
+    
+    if(!shss.length) return;
 
     const mohr = shss[0].usr_Ev.mohr;
 
     // Convert phi' from degrees to radians
     // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
-	
+
 	var trendLine = js.get("overrides.graphs.ShearStress.lines.0", vars);
-	if(trendLine) trendLine = js.mixIn(trendLine);
-	// this.print("mohrTrendLine", trendLine);
+	if(sampleMeasurements.length === 1) {
+		
+		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
+				initialXValue: 0, initialValue: 0,
+				finalXValue: 300, finalValue: Math.tan(mohr.phi_s / (180 / Math.PI)) * 300,
+				lineColor: "teal", lineAlpha: 0.95
+			}, {
+				lineThickness: 3, dashLength: 2,
+				editable: true
+	        });
+	} else {
+		
+		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
+				initialXValue: 0, initialValue: t_(0),
+				finalXValue: 300, finalValue: t_(300),
+				lineColor: "teal", lineAlpha: 0.95
+			}, {
+				lineThickness: 3, dashLength: 2,
+				editable: true
+	        });
+	}
+
+	this.print("mohr-info", {tl: trendLine, mohr: mohr});
 
     makeChart(this, {
         immediate: true,
         node: this.getNode(),
-        colors: ["rgb(0,0,0)", "red", "rgb(112,173,71)"],
+        colors: select_colors(this.up(), GDS.colors),
         valueAxes: [{
             id: "y1",
             position: "left",
-            maximum: t_(GDS.maxOf({measurements:measurements}, "x").x + 10)
+            maximum: t_(GDS.maxOf({measurements: measurements}, "x").x + 10)
         }, {
             id: "x1",
             position: "bottom",
             title: js.sf(valueAxisTitle, vars.stages.SH.i + 1),
             treatZeroAs: GDS.treatZeroAs
         }],
-        trendLines: [js.mi(trendLine || {
-			initialXValue: 0, initialValue: t_(0),
-			finalXValue: 300, finalValue: t_(300),
-			lineColor: "teal", lineAlpha: 0.95
-		}, {
-			lineThickness: 3, dashLength: 2,
-			editable: true
-        })]
+        trendLines: [trendLine]
     });
     
 	this.getNode().qs("svg")._description = series[0].title;
@@ -1277,7 +1326,17 @@ const handlers = {
 
 			var modified = this.ud("#modified");
 			var blocked = modified.vars("blocked");
-			
+			var parent = component.getParent();
+			var value = component.getValue();
+
+			if(value) {
+				// finds all other selects which value equals component's value and resets their value
+				parent
+					.qsa("< vcl/ui/Select")
+					.filter(s => s !== component && s.getValue() === value)
+					.forEach(s => s.setValue(""));
+			}
+
 			this.setTimeout("refresh", () => {
 	    		var vars = this.vars(["variables"]);
 
@@ -1293,10 +1352,7 @@ const handlers = {
 		    		js.set("overrides.inputs", inputs, vars);
 
 					this.ud("#refresh").execute();
-					this.print("overrides", vars.overrides);
-					// this.print("vars", vars);
-		   // 		this.print("vars-equals", vars === this.vars(["variables"]));
-					
+
 					if(!blocked) {
 						modified.setState(true);
 					}
@@ -1304,7 +1360,7 @@ const handlers = {
 			}, 250);
 		}
 	},
-
+	
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "CO";
@@ -1321,39 +1377,38 @@ const handlers = {
 	    	(evt) => { // callback to provide options and get a grip on calculated stageMeasurements
 		        const stageMeasurements = evt.stageMeasurements;
 		        
-		        [1, 2, 3].forEach(i => {
-		        	const stm = stageMeasurements[i - 1];
-			        const x = categoryField + i, y = valueField + i;
+		        evt.sampleMeasurements.forEach((a, i) => {
+		        	const stm = stageMeasurements[i];
+			        const x = categoryField + (i + 1), y = valueField + (i + 1);
 			        const ls = GDS.find_linear_segment(stm, x, y);
 			        const max = GDS.maxOf({measurements: stm}, y)
 
 					ls.m = (ls.end[y] - ls.start[y]) / (ls.end[x] - ls.start[x]);
 					ls.b = ls.start[y] - ls.m * ls.start[x];
 
-			        const lastLine = changedLines[i * 4 - 1] ? js.mixIn({
-							lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
-			            }, changedLines[i * 4 - 1]) : {
+			        const lastLine = changedLines[i * 4 + 3] ? js.mixIn({
+							lineColor: colors[i], lineAlpha: 0.35, editable: true
+			            }, changedLines[i * 4 + 3]) : {
 					        initialXValue: -ls.b / ls.m, initialValue: 0,
 					        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
-					        lineColor: colors[i - 1], lineAlpha: 0.35, editable: true
+					        lineColor: colors[i], lineAlpha: 0.35, editable: true
 			            };
-		
-					
+
 					const t100 = (max[y] - ls.b) / ls.m;
 		            trendLines.push({
 						initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.start[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.end[x], finalValue: 100,
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, {
 						initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
 						finalXValue: 100, finalValue: max[y],
-						lineColor: colors[i - 1], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.05,
 						dashLength: 2
 		            }, 
 		            lastLine);
@@ -1362,7 +1417,7 @@ const handlers = {
 		            	above: true, inside: true,
 				        position: "bottom", 
 				        value: t100, lineAlpha: 0.8,
-						lineColor: colors[i - 1]
+						lineColor: colors[i]
 		            })
 		        });
 
@@ -1424,6 +1479,15 @@ const handlers = {
 	    renderChart_MohrCircles.call(this, vars, 
 	    	locale("Graph:ShearStress.title.stage-F"), 
 	    	locale("Graph:ShearStress.title.stage-F"));
+	},
+	'#graph_VolumeChange_SS onRender'() {
+	    var vars = this.vars(["variables"]) || { stages: [] };
+	    var selected = "SH";
+	
+	    renderChart.call(this, vars, 
+	    	locale("Graph:VolumeChange_SS.title.stage-F"), 
+	    	locale("Graph:VolumeChange_SS.title.stage-F"), 
+	    	"dV", "Axial Strain (%)", selected);
 	},
 	'#graph_Taylor onRender'() {
 		this.setTimeout("render", () => {
@@ -1579,7 +1643,8 @@ const handlers = {
 			"WaterOverpressure",
 			"EffectiveHighStressRatio",
 			"ShearStress",
-			"DeviatorStressQ"
+			"DeviatorStressQ",
+			"VolumeChange_SS",
 		],
 		setup() {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
@@ -1627,6 +1692,21 @@ const handlers = {
 				})) return this.ud("#bar-user-inputs").render();
 				
 				sacosh.type = this.ud("#input-CO-type").getValue();
+				
+				var type = this.ud("#select-type").getValue();
+				// var type = js.get("overrides.inputs.select-type", vars);
+				// this.print("!!!!type: " + type);
+
+				// var type = js.get("inputs.select-type", vars.overrides);
+				this.ud("#tabs-graphs")
+					.getControls().filter(c => c instanceof Tab)
+					.forEach(tab => tab.print(js.sf("%s includes %s => %s", (tab.vars("types") || []).join("."), type, (tab.vars("types") || []).includes(type))));
+	
+				this.ud("#tabs-graphs")
+					.getControls().filter(c => c instanceof Tab)
+					.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
+
+
 			// })();
 			
 			// setup_casagrande(vars);
@@ -1636,6 +1716,7 @@ const handlers = {
 			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
 			setup_parameters(vars);
+
 		}
 	}
 }, [
@@ -1663,16 +1744,20 @@ const handlers = {
 				index -= (index + 2) - (sel.length - 1);
 				if(index < 0) index = 0;
 			}
+			
+			const NULL_SAMPLE = "- - - - - - - - - - - - -";
 					
 			for(let i = 1; i <= 3; ++i) {
 				let select = this._owner.qs("#select-sample-" + i);
-				select.setOptions(sel.map(o => ({ 
-					// value: o.d.getAttributeValue("id"), 
+				select.setOptions([{content: NULL_SAMPLE, value: ""}].concat(sel.map(o => ({ 
+					value_id: o.d.getAttributeValue("id"), 
 					content: o.d.getAttributeValue("naam"),
 					value: o.n.hashCode()
-				})));
+				}))));
 				if(sel.length >= i + index) {
 					select.setValue(sel[i - 1 + index].n.hashCode());
+				} else {
+					select.setValue(null);
 				}
 			}
 			
@@ -1711,13 +1796,13 @@ const handlers = {
 		    	.map(arr => arr && arr.getArray())
 		    	.filter(arr => arr);
 
-		    if(sampleMeasurements[0][0].txVC === undefined) {
+		    if(sampleMeasurements[0] && sampleMeasurements[0][0].txVC === undefined) {
 		    	return refresh(nodes[0]);
 		    }
-		    if(sampleMeasurements[1][0].txVC === undefined) {
+		    if(sampleMeasurements[1] && sampleMeasurements[1][0].txVC === undefined) {
 		    	return refresh(nodes[1]);
 		    }
-		    if(sampleMeasurements[2][0].txVC === undefined) {
+		    if(sampleMeasurements[2] && sampleMeasurements[2][0].txVC === undefined) {
 		    	return refresh(nodes[2]);
 		    }
 		    
@@ -1734,16 +1819,18 @@ const handlers = {
 
 			["0", "1", "2"].forEach(i => {
 				var s = js.get("overrides.sample" + i, vars);
-				[8, 9, 10].forEach(j => {
-					[7, 8, 9, 10].forEach(k => {
-						if(!s[j].items[k].value) {
-							s[j].items[k].value = 
-								vars.overrides.sample0[j].items[k].value ||
-								vars.overrides.sample1[j].items[k].value ||
-								vars.overrides.sample2[j].items[k].value;
-						}
-					})
-				})
+				if(s) {
+					[8, 9, 10].forEach(j => {
+						[7, 8, 9, 10].forEach(k => {
+							if(!s[j].items[k].value) {
+								s[j].items[k].value = 
+									js.get(js.sf("overrides.sample0.%s.items.%s.value", j, k), vars) ||
+									js.get(js.sf("overrides.sample1.%s.items.%s.value", j, k), vars) ||
+									js.get(js.sf("overrides.sample2.%s.items.%s.value", j, k), vars);
+							}
+						})
+					});
+				}
 			});
 				
 			this.udr("#generate").execute(evt);
@@ -1856,6 +1943,13 @@ const handlers = {
     		} else {
     			if(!vars.overrides) return;
     			delete vars.overrides.graphs;
+    			delete vars.overrides.photos;
+    			this.ud("#bar-user-inputs").getControls().forEach(c => {
+    				if(c['@properties'].value !== undefined) {
+    					c.revertPropertyValue("value");
+    				}
+    			});
+    			GDSFotos.clearAll(this.up());
     		}
 
 			this.ud("#graphs").getControls().map(c => c.render());
@@ -1872,6 +1966,22 @@ const handlers = {
     		'>.{Group}': "display: block;"
     	}
     }, [
+    	// ["vcl/ui/PopupButton", {
+    	// 	content: locale("TriaxialTest.report") + " <i class='fa fa-chevron-down'></i>",
+    	// 	css: "position:absolute;left:0;top:0;",
+    	// 	popup: "popup-reports"
+    	// }],
+    	
+    	["vcl/ui/Group", {
+    		css: "position:absolute;left:4px;top:4px;",
+    	}, [
+	    	["vcl/ui/Element", { content: locale("TriaxialTest.type") + ": " }],
+	    	["vcl/ui/Select", ("select-type"), {
+	    		options: locale("TriaxialTest.types").map(type => ({value: type, content: type})),
+	    		value: "CIU"
+	    	}]
+    	]],
+    	
     	["vcl/ui/Group", [
 	    	["vcl/ui/Element", { content: locale("Sample") + " 1:" }],
 	    	["vcl/ui/Select", ("select-sample-1"), { css: "border-bottom: 3px solid rgb(0,0,0); background-color: rgba(0,0,0,0.05);" }],
@@ -2063,14 +2173,15 @@ const handlers = {
 			}
 		}
 	}, [
-		["vcl/ui/Tab", { text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true } }],
-		["vcl/ui/Tab", { text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation" }],
-		["vcl/ui/Tab", { text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress" }],
-		["vcl/ui/Tab", { text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure" }],
-		["vcl/ui/Tab", { text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio" }],
-		["vcl/ui/Tab", { text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ" }],
-		["vcl/ui/Tab", { text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true } }],
-		["vcl/ui/Tab", { text: locale("Graph:Taylor"), control: "graph_Taylor", visible: false }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange_SS"), control: "graph_VolumeChange_SS", vars: { types: ["CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:Taylor"), control: "graph_Taylor", vars: { types: [ "CIDc"] } }],
 
 		["vcl/ui/Bar", ("menubar"), { align: "right", autoSize: "both", classes: "nested-in-tabs" }, [
 			["vcl/ui/Button", ("button-edit-graph"), { 
@@ -2113,6 +2224,35 @@ const handlers = {
 					return modified === true;
 				}
 			}
+		}],
+		["vcl/ui/Panel", ("graph_VolumeChange_SS"), {
+			align: "client", visible: false, 
+			classes: "single",
+			// vars: {
+			// 	TrendLineEditor_stop(vars, stage, chart, owner) {
+			// 		var modified;
+			// 		chart.trendLines.forEach((tl, index) => {
+			// 			if(tl && tl.modified) {
+			// 				modified = true;
+			// 				tl.lineThickness = 1;
+			// 				tl.draw();
+				
+			// 				var line = {
+			// 					initialXValue: tl.initialXValue,
+			// 					initialValue: tl.initialValue,
+			// 					finalXValue: tl.finalXValue,
+			// 					finalValue: tl.finalValue
+			// 				};
+					
+			// 				js.set(js.sf("overrides.graphs.VolumeChange.lines.%s", index), line, vars);
+			// 			}
+			// 		});
+			// 		if(modified) {
+			// 			// TODO what to update here instead of:  stage.isotachen.update();
+			// 		}
+			// 		return modified === true;
+			// 	}
+			// }
 		}],
 		["vcl/ui/Panel", ("graph_PorePressureDissipation"), {
 			align: "client", visible: false, 
