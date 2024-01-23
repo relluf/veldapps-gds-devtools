@@ -635,7 +635,7 @@ function setup_koppejan(vars) {
 	var slope_variant = 2;
 	var rlines = [];
 
-	// serie2 references only the (7) points where y2 are set, and its z10, z100, z1000, z10000 values will be calculated later on (references the last measurements of each stage)
+	// serie2 references only the (7) points where y2 are set, and its ez10, ez100, ez1000, ez10000 values will be calculated later on (references the last measurements of each stage)
 	serie2 = vars.stages.map(stage => stage.measurements[stage.measurements.length - 1]);
 	serie2.forEach(m => m.y2 = m[GDS.key_as]); // koppejan
 
@@ -656,10 +656,10 @@ function setup_koppejan(vars) {
 			]), { precision: 9 } )
 		};
 
-		/* copy lr info to slope */
+		/* copy lr info to slope - 20240122 adds feature to override RC/NP */
 		var rl = slope.regression_linear;
-		slope.rc = rl.equation[0];
-		slope.np = rl.equation[1];
+		slope.rc = js.get("KJ_slopes." + s + ".rc", window) || rl.equation[0];
+		slope.np = js.get("KJ_slopes." + s + ".np", window) || rl.equation[1];
 		slopes.push(slope);
 
 		/* extrapolate next stage */
@@ -677,38 +677,28 @@ function setup_koppejan(vars) {
 				obj['x' + (s + 3)] = (t - t1) || GDS.treatZeroAs;
 				
 				// superpositiebeginsel: vz2(ta-t1) = z1(ta-t1) + z2(ta-t1).
-				obj.z1 = slope.np + slope.rc * Math.log10(t); // previous stages extrapolated
+				obj.z1 = slope.np + slope.rc * Math.log10(t); // previous stage extrapolated
 				obj.z2 = obj[y] - obj.z1; // (actual measurement) - z1 => z2
 
-				// calculate "verschoven zetting" 
+				// ...calculate "verschoven zetting" - maps onto vzN(t-t[N-1]) in SPN-Excel
 				obj.vz0 = obj[y];
 				slopes.slice(0, s + 1).forEach((slope, i) => {
-					/* 2021/04/27 s.paznoriega@gmail.com
-						- vz4(t-3) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-									+ rc2 log((t-2) / (t-1)) 
-									+ rc3 log((t-3) / (t-2))
-						- vz3(t-2) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-									+ rc2 log((t-2) / (t-1)) 
-						- vz2(t-1) 
-							= z(t)	+ rc1 log((t-1) / (t-0))
-
-					 * CUR pagina 41
-						= z(t)  + rc1 (log(t-t1) - log(t)) 
-        						+ rc2 (log(t-t2) - log(t-t1)) 
-        						+ rc3 (log(t-t3) - log(t-t2)) 	
-        						
-						= z(t)	+ rc1·[log (t-t1) - log(t)] 
-								+ rc2·[log (t-t2) - log(t-t1)] 
-								+ rc3·[log (t-t3) - log(t-t2)] 
-								+ .. 
-								+ rc(n-2)·[log(t-t(n-2)) - log(t-tn-3)]
-								+ rc(n-1)·[log(t-t(n-1)) - rc(n-1)·log(t-t(n-2))] <<< ????
-					*/
-					obj.vz0 += (obj['vz0_'+(i+1)] = slope.rc * (Math.log10( (t-(i+1)) / (t-i))));
-					// obj.vz0 += (obj['vz0_'+(i+1)] = slope.rc * (Math.log10( (t-i) / (t-(i+1)))));
+					obj.vz0 += (obj['vz0_' + (i + 1)] = slope.rc * (Math.log10( (t-(i+1)) / (t-i))));
 				});
+			});
+			
+			/* for each measurement in current stage... */
+			z1.forEach((obj, i) => {
+				// if(!i) return; // skip the first (t - t1 === 0)
+				
+				var t = obj.daysT + 1; // time in days since begin of Test (> t1)
+
+				// ...calculate "geëxtrapoleerde zetting" - maps onto extrpN(t) in SPN-Excel
+				var n = s;
+				obj.ez = slopes[n].np + slopes[n].rc * Math.log10(t > n ? t - n : 1);
+				while(t > n && n--) { // extrapoleer voor t > t(n) (zie: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202401/20240110-104245-rzxRdl.png)
+					obj.ez += slopes[n].rc * (Math.log10( ((t - n) / (t - (n + 1)) )));
+				}
 			});
 		}
 	});
@@ -759,8 +749,8 @@ function setup_koppejan(vars) {
 			
 			return [{
 				initialXValue: 1, initialValue: S.np,
-				finalXValue: 20, finalValue: S.np + S.rc * Math.log10(20),
-				lineAlpha: 1, lineColor: "black", dashLength: 3
+				finalXValue: 2000, finalValue: S.np + S.rc * Math.log10(2000),
+				lineAlpha: 1, lineColor: "gray", dashLength: 3
 			}];
 		});
 		if((points = js.get("overrides.koppejan.points_pg", vars))) {
