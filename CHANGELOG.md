@@ -1,3 +1,50 @@
+### 2024/01/23: 2.0.7
+
+* Fixes shifted settings and extrapolation for Koppejan
+
+### 2024/01/18: 2.0.5, 2.0.6
+
+* Adjusts scaling X-axis for Bjerrum (minimum) and Koppejan (maximum) based upon data
+* Improves log\_line\_intersect for small deltas (still not failsafe though)
+* Adjusts `extrp()` for Koppejan 
+* Fixed an issue with `vpnn` in Casagrande
+* Changed some default values used during PDF generation (in favor of Jacques Nsengiyumva)
+
+### 2024/01/14 
+
+* Enhances and bugfixes CSV-export
+* Replaces `undefined` values to empty strings
+* Support for filtering dataset and columns
+
+### 2024/01/12 
+
+* Fixed a bug where the scale of the X-axis for Koppejan graphs was insufficient to display the loading regime.
+
+### 2024/01/11 
+
+* Fixed a bug where calculating Casagrande variables could crash when not enough vnnp points were found (determine AB & DEF)
+* DISABLED FOR NOW: Adjustments made to test new extrp function, debugging Koppejan-parameters (#VA20240108-1)
+
+### 2024/01/10: 2.0.4
+
+* Adjustments made to test new extrp function, debugging Koppejan-parameters (#VA20240108-1)
+
+### 2023/12/07: 2.0.3
+
+*  Allows for selecting 1, 2 or 3 specimens for reporting CUIc tests
+
+### 2023/12/06: 2.0.2
+
+* Adds the trend line according to the secant effective friction angle in the case only 1 specimen is reported (CUIc)
+
+### 2023/11/28: 2.0.1
+
+* Allows for editing, loading and saving of trend lines in the graphs _Volumeverandering_ and _Mohr-Coulomb_
+
+### 2023/11/22: 2.0.0
+
+* In favor of veldoffice-gtlab-vcl release
+
 # `2023/10/03` veldoffice-geografie-vcl@v139b
 
 - **Bugfix**: Addressed an issue related to line modifications and variable refreshment before generating a report. This bug was initially introduced due to changes required for the triaxial test.
