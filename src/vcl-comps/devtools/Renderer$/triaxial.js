@@ -282,7 +282,8 @@ function setup_measurements(vars) {
 	 		// CIDc specific calculations
 	 		if(index > 0) {
 	 			// ∆𝑉s;n = 𝑉b;n-1 − 𝑉b;n
-	 			stage.dV = mt.dV = GDS.valueOf(arr[index - 1], "Back Volume") - GDS.valueOf(mt, "Back Volume");
+	 			// stage.dV = mt.dV = GDS.valueOf(arr[index - 1], "Back Volume") - GDS.valueOf(mt, "Back Volume");
+	 			stage.dV = mt.dV = GDS.valueOf(mt, "Back Volume") / 1000;
 	 			
 	 			// Evols (%) = ∆𝑉s;n / (Vi - dVc) * 100
 	 			mt.Evols = mt.dV / (vars.V - vars.stages.CO.dV) * 100;
@@ -1216,13 +1217,14 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     // Convert phi' from degrees to radians
     // Calculate t' using the Mohr-Coulomb failure criterion (https://chat.openai.com/c/15ea4974-6905-47a4-ad0b-7893c28134a3)
 	const t_ = (s_) => mohr.c_ + s_ * Math.tan(mohr.phi_ * (Math.PI / 180));
+	const max_X = measurements[measurements.length - 1].x * 1.1;
 
 	var trendLine = js.get("overrides.graphs.ShearStress.lines.0", vars);
 	if(sampleMeasurements.length === 1) {
 		
 		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
 				initialXValue: 0, initialValue: 0,
-				finalXValue: 300, finalValue: Math.tan(mohr.phi_s / (180 / Math.PI)) * 300,
+				finalXValue: max_X, finalValue: Math.tan(mohr.phi_s / (180 / Math.PI)) * max_X,
 				lineColor: "teal", lineAlpha: 0.95
 			}, {
 				lineThickness: 3, dashLength: 2,
@@ -1232,7 +1234,7 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
 		
 		trendLine = js.mi(trendLine ? js.mi(trendLine) : {
 				initialXValue: 0, initialValue: t_(0),
-				finalXValue: 300, finalValue: t_(300),
+				finalXValue: max_X, finalValue: t_(max_X),
 				lineColor: "teal", lineAlpha: 0.95
 			}, {
 				lineThickness: 3, dashLength: 2,
@@ -2173,13 +2175,13 @@ const handlers = {
 			}
 		}
 	}, [
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange_SS"), control: "graph_VolumeChange_SS", vars: { types: ["CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation", vars: { types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress", vars: { types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure", vars: { types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio", vars: { types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange_SS"), control: "graph_VolumeChange_SS", vars: { types: ["CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:Taylor"), control: "graph_Taylor", vars: { types: [ "CIDc"] } }],
 
