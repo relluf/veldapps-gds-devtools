@@ -629,7 +629,7 @@ function setup_koppejan(vars) {
 	});
 	
 	/*- ignore the 1st ... */
-	var measurements = vars.measurements.slice(1);
+	var measurements = vars.measurements;//.slice(1);
 
 	var serie2, slopes = [], x = GDS.key_t, y = GDS.key_d;
 	var slope_variant = 2;
@@ -645,21 +645,41 @@ function setup_koppejan(vars) {
 		/* select all measurements for the current stage s+1 (NOTE: s starts at 0) */
 		var z1 = measurements.filter(_ => _.stage === (s + 1));
 		
+		/* dataset for linear regression for log10(t - t1) and the "verschoven zetting" (if available otherwise use [y]) */
+		var z1_rls = z1.map(m => [Math.log10(m.days), m.vz0 || m[y]]);
+		
+		/* determine time interval in seconds of dataset */
+		var delta = z1[1][GDS.key_t] - z1[0][GDS.key_t];
+		
 		/* register the slope */
 		var slope = {
 			stage: s + 1,
 			measurements: z1,
 			last: z1[z1.length - 1],
 			/* do a linear regression for log10(t - t1) and the "verschoven zetting" (if available otherwise use [y]) */
-			regression_linear: regression.linear(z1.slice(15).map(m => [
+			regression_linear: regression.linear(z1.slice(1).map(m => [
 				Math.log10(m.days), m.vz0 || m[y]
-			]), { precision: 9 } )
+			]), { precision: 9 } ),
+
+			// regression_linear: regression.linear(z1_rls, { precision: 9 } ),
+			regression_linear_15: regression.linear(z1_rls.slice(15), { precision: 9 } ),
+			regression_linear_1h: regression.linear(z1_rls.slice(1 * 3600 / delta), { precision: 9 } ),
+			regression_linear_2h: regression.linear(z1_rls.slice(2 * 3600 / delta), { precision: 9 } ),
+			regression_linear_4h: regression.linear(z1_rls.slice(4 * 3600 / delta), { precision: 9 } ),
+			regression_linear_6h: regression.linear(z1_rls.slice(6 * 3600 / delta), { precision: 9 } ),
+			regression_linear_12h: regression.linear(z1_rls.slice(12 * 3600 / delta), { precision: 9 } ),
 		};
 
 		/* copy lr info to slope - 20240122 adds feature to override RC/NP */
 		var rl = slope.regression_linear;
 		slope.rc = js.get("KJ_slopes." + s + ".rc", window) || rl.equation[0];
 		slope.np = js.get("KJ_slopes." + s + ".np", window) || rl.equation[1];
+
+		["15", "1h", "2h", "4h", "6h", "12h"].forEach(n => {
+			slope[`rc_${n}`] = slope[`regression_linear_${n}`].equation[0];
+			slope[`np_${n}`] = slope[`regression_linear_${n}`].equation[1];
+		});
+		
 		slopes.push(slope);
 
 		/* extrapolate next stage */
@@ -1268,7 +1288,7 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
                 content: "Opmerking"
             }],
             ["vcl/ui/Input", "option_description", {
-                value: "geen"
+                value: "Geen"
             }]
         ]],
         ["vcl/ui/Group", ("group_buttons"), {
