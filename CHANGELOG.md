@@ -1,3 +1,9 @@
+### 2024/02/02: 2.0.8
+
+* Adds extra validation calculations concerning Koppejan and linear regressions (as requested by Salvador Paz Noriega)
+* Adjusts calculation for dV (after checkup with Jacques Nsengiyumva)
+* Adjusts scale on X-axis of Mohr Coulomb graphs to fit all circles
+
 ### 2024/01/23: 2.0.7
 
 * Fixes shifted settings and extrapolation for Koppejan
