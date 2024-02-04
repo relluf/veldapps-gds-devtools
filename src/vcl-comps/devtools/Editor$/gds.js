@@ -217,7 +217,6 @@ const downloadCSV = (list, filename) => {
     	}
     }],
 
-
 	["vcl/Action", ("focus-q"), {
 		hotkey: "MetaCtrl+191",
 		on() { this.ud("#q").setFocus(); }
