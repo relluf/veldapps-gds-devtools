@@ -2,6 +2,7 @@
 
 const Parser = require("papaparse/papaparse");
 
+const defaultAttributes = "|Stage|Time|Stress Target|Axial Displacement|Axial Load|Axial Strain|".split("|").filter(a => a);
 const gdsKey = (name, obj) => {
 	if(obj.hasOwnProperty(name)) return name;
 	return Object.keys(obj).filter(k => k.startsWith(name))[0];
@@ -308,10 +309,15 @@ const downloadCSV = (list, filename) => {
 		}],
 		["vcl/ui/Input", ("q"), { 
 			placeholder: "Filter", 
+			onClick() {
+				this.ud("#measurements")._columns.map(
+					c => c._rule.style.setProperty("display", 
+						c._visible ? "" : "none", "important"));
+			},
 			onChange() { 
 				this.setTimeout("updateFilter", () => {
 					let value = this.getValue(), attrs;
-					
+
 					if(value.startsWith("|")) {
 						attrs = value.split(/(?<!\\)\|/);
 						value = attrs.pop();
@@ -331,10 +337,18 @@ const downloadCSV = (list, filename) => {
 
 					let measurements = this.ud("#measurements");
 					if(measurements.isVisible()) {
+						if(!attrs) {
+							attrs = measurements.vars("autoColumns.attributes") || defaultAttributes;
+						} else if(attrs[1] === "*") {
+							attrs = null;
+						}
+
 			    		measurements._controls.forEach(r => r.setState("classesInvalidated", true));
-						measurements._columns.map(
+						measurements._columns.forEach(
 							column => column.setVisible(
-								!attrs || attrs.filter(a => a).some(a => a.endsWith(" ") ? column._attribute === a.trim() : column._attribute.includes(a))
+								!attrs || attrs.filter(a => a).some(a => a.endsWith(" ") ? 
+									column._attribute === a.trim() : 
+									column._attribute.startsWith(a))
 							)
 						);
 
@@ -362,7 +376,17 @@ const downloadCSV = (list, filename) => {
 		align: "client", autoColumns: true, visible: false, 
 		css: { ".row-disabled": "color: silver;", },
 		source: "array-measurements",
-		vars: { autoColumns: { capitalize: false, attributeInFront: false } },
+		vars: { 
+			autoColumns: { 
+				capitalize: false, 
+				attributeInFront: false,
+				onColumnInit(column) {
+					const a = column._attribute;
+					const attrs = this.vars("autoColumns.attributes") || defaultAttributes;
+					column.setVisible(attrs.some(attr => a.startsWith(attr)));
+				}
+			} 
+		},
 		onDblClick: function() {
 			this.print(this.getSelection(true));	
 		},
