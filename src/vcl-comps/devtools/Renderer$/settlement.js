@@ -88,7 +88,11 @@ function makeChart(c, opts) {
 	        	type: "line", lineThickness: 2,
 		        connect: serie.connect || false,
 			    xField: serie.categoryField || "x", yField: serie.valueField || "y",
-			    yAxis: serie.yAxis || "y1"
+			    yAxis: serie.yAxis || "y1",
+			    bullet: "none", bulletSize: 8, 
+			    maxBulletSize: 8, minBulletSize: 8,
+			    // bulletBorderColor: "red", bulletBorderThickness: 2,
+			    // bulletAlpha: 0.5
 		    }, serie);
 		});
 		
@@ -96,6 +100,8 @@ function makeChart(c, opts) {
 		var serializing = this.ud("#graphs").hasClass("pdf");
 		
 		options.valueAxes.forEach(ax => {
+			// ax.precision = 2;
+			ax.balloonTextFunction = (v) => parseFloat(v).toFixed(4).replace(/[.]*0*$/g, "");
 			ax.includeGuidesInMinMax = true;
 			if(serializing) {
 				delete ax.title;
@@ -201,7 +207,7 @@ const handlers = {
 	"#graph_Casagrande onRender"() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
-			var selected = js.get("overrides.casagrande.stage", vars) || [3];
+			var selected = js.get("overrides.casagrande.stage", vars) || [3, 4];
 
 			/*- reset */
 			var content = [], st;
@@ -297,7 +303,7 @@ const handlers = {
 	"#graph_Isotachen_c onRender"() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
-			var selected = js.get("overrides.isotachen_c.stage", vars) || [3];
+			var selected = js.get("overrides.isotachen_c.stage", vars) || [4];
 	
 			/*- reset */
 			var content = [], st;
@@ -1458,15 +1464,22 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 		}],
 		["vcl/ui/Panel", ("graph_Bjerrum_e"), {
 			align: "client", visible: false,
-			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
+			vars: { 
+				'editing-bullets': true,
+				TrendLineEditor_stop: TrendLineEditor_stop_BI 
+			}
 		}],
 		["vcl/ui/Panel", ("graph_Bjerrum_r"), {
 			align: "client", visible: false,
-			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
+			vars: { 
+				'editing-bullets': true,
+				TrendLineEditor_stop: TrendLineEditor_stop_BI }
 		}],
 		["vcl/ui/Panel", ("graph_Isotachen"), {
 			align: "client", visible: false,
-			vars: { TrendLineEditor_stop: TrendLineEditor_stop_BI }
+			vars: { 
+				'editing-bullets': true,
+				TrendLineEditor_stop: TrendLineEditor_stop_BI }
 		}],
 		["vcl/ui/Panel", ("graph_Koppejan"), {
 			align: "client", visible: false,
