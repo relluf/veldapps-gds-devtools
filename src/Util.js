@@ -261,6 +261,23 @@ define(["locale"], Util => {
 	};
 	const TrendLine_KeyUp_Handlers = {
 		Space(graph, trendLine, evt) {
+			const restoreSelectedTrendLine = () => {
+				trendLines.selected.lineThickness = 1;
+				trendLines.selected.dashLength = trendLines.selected.dashLength_;
+				trendLines.selected.lineColor = trendLines.selected.lineColor_;
+				trendLines.selected.lineAlpha = trendLines.selected.lineAlpha_;
+				trendLines.selected.draw();
+			};
+			const selectSelectedTrendLine = () => {
+				trendLines.selected.lineThickness = 3;
+				trendLines.selected.lineColor_ = trendLines.selected.lineColor;
+				trendLines.selected.lineAlpha_ = trendLines.selected.lineAlpha;
+				// trendLines.selected.lineColor = "purple";
+				trendLines.selected.dashLength = 0;
+				trendLines.selected.lineAlpha = 1;
+				trendLines.selected.draw();
+			};
+			
 			var vars = graph.vars(["variables"]);
 			if(!vars.editor || !vars.editor.chart) return;
 			
@@ -281,20 +298,10 @@ define(["locale"], Util => {
 	
 			if(trendLines.selected !== trendLine) {
 				if(trendLines.selected) {
-					trendLines.selected.lineThickness = 1;
-					trendLines.selected.dashLength = trendLines.selected.dashLength_;
-					trendLines.selected.lineColor = trendLines.selected.lineColor_;
-					trendLines.selected.lineAlpha = trendLines.selected.lineAlpha_;
-					trendLines.selected.draw();
+					restoreSelectedTrendLine();
 				}
 				if((trendLines.selected = trendLine)) {
-					trendLines.selected.lineThickness = 3;
-					trendLines.selected.lineColor_ = trendLines.selected.lineColor;
-					trendLines.selected.lineAlpha_ = trendLines.selected.lineAlpha;
-					// trendLines.selected.lineColor = "purple";
-					trendLines.selected.dashLength = 0;
-					trendLines.selected.lineAlpha = 1;
-					trendLines.selected.draw();
+					selectSelectedTrendLine();
 				}
 			}
 		},
@@ -443,7 +450,6 @@ define(["locale"], Util => {
 	function cursorMoved(evt) { this.vars("last-cursor-moved", evt); }
 	function isEditableTrendLine(tl) {
 		return tl.editable;
-		// return tl.dashLength === 0 && (tl.lineColor == "red" || tl.lineColor === "green");
 	}
 
 	const parseValue = (value) => typeof value === "string" && value !== "" ? isNaN(value = value.replace(",", ".")) ? value : parseFloat(value) : value;

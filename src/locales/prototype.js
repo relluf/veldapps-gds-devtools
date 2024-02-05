@@ -17,7 +17,7 @@ define((require) => ({
 			
 			'.type':							"Proeftype",
 			'.types': [[
-				"CIUc", "CIDc"
+				"CIUc", "CIDc", "CAUc", "CADc", //"CIUe", "CIDe", "CAUe", "CADe"
 			]]
 		},
 		"NEN-EN-ISO":							"NEN-EN-ISO 17892-9:2018",
