@@ -145,7 +145,7 @@ const handlers = {
 			});
 			
 			this.ud("#graphs").getControls().forEach(c => c.setState("invalidated", true));
-			this.print("parsed", { stages: vars.stages, variables: vars, measurements: vars.measurements });
+			this.print("parsed-vars", { columns: vars.columns, headers: vars.headers, stages: vars.stages, variables: vars, measurements: vars.measurements, overrides: vars.overrides , parameters: vars.parameters });
 		}
     }],
 
@@ -171,6 +171,11 @@ const handlers = {
 				delete vars.editor;
 				this.ud("#popup-edit-graph-stage")._controls.forEach(c => c.setSelected("never"));
 				// stage = undefined;
+				const allow = graph.vars("allow-data-shifting");
+				if(allow || graph.vars("editing-bullets")) {
+					chart.graphs.forEach(g => g.bullet = "none");
+					chart.validateNow();
+				}
 			} else {
 				vars.editor = new GDS.TrendLine.Editor(vars, vars.stages[stage], chart, graph);
 				node = graph.getNode();
@@ -179,6 +184,12 @@ const handlers = {
 				graph._parent.focus();
 				if(stage !== undefined) {
 					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
+				}
+				
+				const allow = graph.vars("allow-data-shifting");
+				if(allow || graph.vars("editing-bullets")) {
+					chart.graphs.forEach(g => g.bullet = "round");
+					chart.validateNow();
 				}
 			}
 
@@ -294,8 +305,10 @@ function getSelectedGraph(cmp) {
 					}
 						
 				} else if(name === "dblclick") {
-					evt.am = am;
-					this.ud("#toggle-edit-graph").execute(evt);
+					if(evt.altKey === false) {
+						evt.am = am;
+						this.ud("#toggle-edit-graph").execute(evt);
+					}
 				} else if(vars.editor) {
 					vars.editor.handle(evt);
 				} else if(mouse && vars.editing) {

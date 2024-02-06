@@ -255,7 +255,7 @@ const handlers = {
 	"#graph_Taylor onRender"() {
 		this.setTimeout("render", () => {
 			var vars = this.vars(["variables"]) || { stages: [] };
-			var selected = js.get("overrides.taylor.stage", vars) || [3];
+			var selected = js.get("overrides.taylor.stage", vars) || [3, 4];
 	
 			/*- reset */
 			var content = [], st;
