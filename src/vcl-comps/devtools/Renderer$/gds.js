@@ -171,7 +171,7 @@ const handlers = {
 				delete vars.editor;
 				this.ud("#popup-edit-graph-stage")._controls.forEach(c => c.setSelected("never"));
 				// stage = undefined;
-				const allow = graph.vars("allow-data-shifting");
+				const allow = graph.vars("allow-origin-shifting");
 				if(allow || graph.vars("editing-bullets")) {
 					chart.graphs.forEach(g => g.bullet = "none");
 					chart.validateNow();
@@ -186,7 +186,7 @@ const handlers = {
 					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
 				}
 				
-				const allow = graph.vars("allow-data-shifting");
+				const allow = graph.vars("allow-origin-shifting");
 				if(allow || graph.vars("editing-bullets")) {
 					chart.graphs.forEach(g => g.bullet = "round");
 					chart.validateNow();

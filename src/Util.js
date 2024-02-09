@@ -467,6 +467,17 @@ define(["locale"], Util => {
 			}
 			return obj;
 		};
+	const attributeNameOf = (measurement, name) => {
+		if(measurement.hasOwnProperty(name)) {
+			return name;
+		}
+		name = name.split("(")[0].replace(/\s$/g, "");
+		for(var k in measurement) {
+			if(k.split("(")[0].replace(/\s$/g, "") === name) {
+				return k;
+			}
+		}
+	};
 	const valueOf = (measurement, name) => {
 		if(measurement.hasOwnProperty(name)) {
 			return parseValue(measurement[name]);
@@ -1597,6 +1608,7 @@ function calc_dH(vars, stage) {
 		
 		drainUsed: (id) => locale("DrainUsed#" + id),
 		
+		attributeNameOf: attributeNameOf,
 		valueOf: valueOf,
 		rateOfStrain: rateOfStrain,
 
