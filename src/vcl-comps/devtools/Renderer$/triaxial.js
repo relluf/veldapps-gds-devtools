@@ -251,6 +251,36 @@ function setup_stages_1(vars, sacosh) {
 	});
 
 }
+function setup_shifting(vars) {
+	var shifted = js.get("overrides.origin-shifting", vars);
+	for(var attribute in shifted) {
+		var info = shifted[attribute];
+		if(info[0]) {
+			var delta = info[0].delta || 0;
+			vars.stages.SH.measurements.forEach((mt, i, arr) => {
+				const attrs = [];
+				if(attribute === "txEHSR_clipped" || attribute === "txDS" || attribute === "") {
+					attrs.push(
+						"Mean Stress s/Eff. Axial Stress 2", 
+						"Max Shear Stress t", 
+						"Pore Pressure", 
+						"Deviator Stress");
+				} else if(attribute === "") {
+					attrs.push(attribute);
+				}
+				if(i + delta < arr.length) {
+					attrs.forEach(attr => {
+						const aname = GDS.attributeNameOf(mt, attr);
+						mt[attr + "___"] = GDS.valueOf(mt, attr);
+						mt[aname] = GDS.valueOf(arr[i + delta], attr);
+					});
+				}
+			});
+		}
+	}
+	vars.alreadyShifted = true;
+	// delete vars.overrides['origin-shifting'];
+}
 function setup_measurements(vars) {
 /*-
 	O = 2 pi r
@@ -306,7 +336,7 @@ function setup_measurements(vars) {
 				var Ac_ = Ac / 1000000;
 				var O_ = O / 1000;
 
-		 		if(mt.Ev_s < 2) {
+		 		if(E1 < 2) {
 		 			return E1 * Kfp * Pfp * O_ / (0.02 * Ac_);
 		 		}
 		 		
@@ -565,7 +595,7 @@ function setup_mohr_coulomb(vars, root) {
 	const max_o_1o_3 = GDS.maxOf(stage, "o_1o_3");
 	const usr_Ev = GDS.byEv(stage, vars.Ev_usr);
 
-	const values = (mt, maxOf) => ({
+	const values = (mt) => ({
 		Ev: GDS.valueOf(mt, "Axial Strain"),
 		q_corr: mt.qs_c,
 		o_3: mt.o_3,//GDS.valueOf(mt, "Eff. Radial Stress"),//mt.o_3,
@@ -1077,7 +1107,7 @@ function makeChart(c, opts) {
 				const attr = attribute.substring(0, attribute.length - 1);
 				const index = e.target.index;
 				const vars = this.vars(["variables"]);
-				const shifted = js.get(`overrides.data-shifting.${attr}.${index}`, vars);
+				const shifted = js.get(`overrides.origin-shifting.${attr}.${index}`, vars);
 				
 				if(shifted) {
 					if(confirm(`NULPUNT VERSCHUIVING\n\nHet nulpunt van de grafiek voor monster ${names[index]} is reeds verschoven en dient eerst te worden hersteld alvorens een nieuw nulpunt kan worden bepaald.\n\nKies OK om het nulpunt te herstellen en kies daarna een nieuw nulpunt.`)) {
@@ -1085,7 +1115,7 @@ function makeChart(c, opts) {
 						teg.execute();
 						this.setTimeout("teg", _=> teg.execute(), 500);
 
-						delete vars.overrides['data-shifting'][attr][index];
+						delete vars.overrides['origin-shifting'][attr][index];
 						this.udr("#renderer #refresh").execute();
 						this.ud("#modified").setState(true);
 					}
@@ -1103,7 +1133,7 @@ function makeChart(c, opts) {
 					if(shifted) delta += shifted.delta;
 					teg.execute();
 					
-					js.set(`overrides.data-shifting.${attr}.${index}`, { x: x, y: y, delta: delta }, vars);
+					js.set(`overrides.origin-shifting.${attr}.${index}`, { x: x, y: y, delta: delta }, vars);
 					this.udr("#renderer #refresh").execute();
 					this.ud("#modified").setState(true);
 				}
@@ -1144,15 +1174,15 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     this._node.innerHTML = content.join("");
     this.vars("rendering", true);
 
-	const shifted = js.get(`overrides.data-shifting.${valueField}`, vars);
-	this.print("shifted." + valueField, shifted);
+	const shifted = js.get(`overrides.origin-shifting.${valueField}`, vars);
+	// this.print("shifted." + valueField, shifted);
 	
     const index = {};
 	sampleMeasurements.map((arr, i) => {
     	return arr.map((mt_s, j) => {
     		let s = GDS.valueOf(mt_s, time_key);
     		let mt_d = index[s] = index[s] || {};
-    		let delta = ((shifted && shifted[i]) || {}).delta || 0;
+    		let delta = vars.alreadyShifted ? 0 : ((shifted && shifted[i]) || {}).delta || 0;
     		let category = mt_s[categoryField];
     		if(delta && j + delta < arr.length) {
     			mt_s = arr[j + delta];
@@ -1630,7 +1660,7 @@ const handlers = {
 		}
 	},
 };
-const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axial Strain|tx|dV |qs_c |txEHSR_clipped|qs_r|d_o1_m_alt|d_o1_fp|qs_c|Excess PWP|o1 |o3 |o_1 |o_3 |mes_p_|Eff. Stress Ratio|".split("|").filter(a => a);
+const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axial Strain|tx|dV |qs_c |txEHSR_clipped|qs_r|d_u|d_o1_m_alt|d_o1_fp|qs_c|Excess PWP|o1 |o3 |o_1 |o_3 |mes_p_|Eff. Stress Ratio|".split("|").filter(a => a);
 
 [(""), {
 	onLoad() {
@@ -1788,6 +1818,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			// setup_casagrande(vars);
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
+			setup_shifting(vars);
 			setup_measurements(vars);
 			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
@@ -2306,7 +2337,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true,
+				'allow-origin-shifting': false,
 				TrendLineEditor_stop(vars, stage, chart, owner) {
 					var modified;
 					chart.trendLines.forEach((tl, index) => {
@@ -2361,42 +2392,42 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			// 	}
 			// }
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': false
 			}
 		}],
 		["vcl/ui/Panel", ("graph_PorePressureDissipation"), {
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': false
 			}
 		}],
 		["vcl/ui/Panel", ("graph_DeviatorStress"), {
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': false
 			}
 		}],
 		["vcl/ui/Panel", ("graph_WaterOverpressure"), {
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': false
 			}
 		}],
 		["vcl/ui/Panel", ("graph_EffectiveHighStressRatio"), {
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': true
 			}
 		}],
 		["vcl/ui/Panel", ("graph_DeviatorStressQ"), {
 			align: "client", visible: false, 
 			classes: "single",
 			vars: {
-				'allow-data-shifting': true
+				'allow-origin-shifting': false
 			}
 		}],
 		["vcl/ui/Panel", ("graph_ShearStress"), {
