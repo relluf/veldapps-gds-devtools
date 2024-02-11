@@ -1,3 +1,23 @@
+### 2024/02/11: 2.0.11
+
+* Fixes the linear regression variants for Koppejan
+* Adds a feature allowing control over the linear regression variant for Koppejan to be used, via the global KJ_slopes.consolidationAfter setting
+
+### 2024/02/07: 2.0.10
+
+* Refactors data-shifting to origin-shifting
+* Adds Util.attributeNameOf(), resolves a string to a full column name or undefined
+* Implements origin-shifting during setup in setup_shifting() for EHSR, moves values of all GDS columns involved in calculation
+
+### 2024/02/06: 2.0.9
+
+* updates chart default settings for reporting/PDF-generation implements data-shifting feature, moving the origin of the graphs
+* updates chart styling (blue cursor lines, bullet-size) adds data-shifting feature, move the origin of graphs (alt+click in edit-mode) for all graphs individually, persistent state via OnderzoekResource improves general chart rendering performance adds default columns for #measurements
+* updates initial selection settings for casagrande, taylor and isotachen graphs adds bullet styling to all graphs configures editing-bullets for bjerrum, isotachen
+* adds triaxial test types
+* reduces number of visible columns of measurements list via vars("autoColumns.attributes") - defaults to defaultAttributes improves column filtering, allows for exact or startsWith pattern works around vcl/ui/ListColumn visibility bug #VA20240202-1
+
+
 ### 2024/02/02: 2.0.8
 
 * Adds extra validation calculations concerning Koppejan and linear regressions (as requested by Salvador Paz Noriega)
@@ -6,7 +26,7 @@
 
 ### 2024/01/23: 2.0.7
 
-* Fixes shifted settings and extrapolation for Koppejan
+* Validates shifted settlements and extrapolation for Koppejan
 
 ### 2024/01/18: 2.0.5, 2.0.6
 
