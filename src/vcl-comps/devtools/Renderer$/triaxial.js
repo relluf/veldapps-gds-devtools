@@ -136,32 +136,7 @@ function setup_stages_1(vars, sacosh) {
 			*/
 			
 			return vars.H - vars.stages.CO.dH;
-		})(),
-		// cvT: (() => {
-			
-		// 	// https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202310/20231012-131957-qBO6x5.png
-			
-		// 	var c = 1.652;
-		// 	var D = vars.D;
-		// 	var H = vars.H;
-		// 	var t100 = vars.stages.CO.t100;
-		// 	var f = 1 / (365.2 * 24 * 3600);
-			
-		// 	return f * (c * D * D) / ((H/D) * (H/D) * t100); // m2/year
-		// })(),
-		// cvT_alt: (() => {
-		// 	/*-	cv;20 = 0.848 * L2 * fT / t90x
-			
-		// 		-L: length of drainage path = 0.5*H (half of the specimen height of drainage from both ends) (m)
-		// 		-t90: time to 90% primary consolidation (s)
-		// 		-fT: temperature correction factor."
-		// 	*/
-		// 	var stage = vars.stages.CO;
-		// 	var L = 0.5 * stage.Hi; 
-		// 	var fT = 1, cf = 0.848;
-		// 	var t = stage.taylor.t90[0];
-		// 	return t !== undefined ? cf * (L*L / (1000*1000)) * fT / t : t;
-		// })(),
+		})()
 	});
 	js.mi((vars.stages.CO), {
 		Evol: (() => {
@@ -174,39 +149,6 @@ function setup_stages_1(vars, sacosh) {
 			*/
 			return (vars.stages.CO.dV / vars.V) * 100;
 		})(),
-		// cvi: (() => {
-			
-		// 	var D0 = vars.D;
-		// 	var H0 = vars.H;
-		// 	var t100 = Math.sqrt(3);
-			
-		// 	return Math.PI / (D0 * D0) / ((H0 / D0) * (H0 / D0) * t100);
-			
-		// })(),
-		// mvT: (() => {
-		// 	/*- mv = 1 / o'c * (dVc / V0) 
-			
-		// 		mv : volume compressibility (MPa-1)
-		// 	*/
-			
-		// 	var dVc = vars.stages.CO.dV;
-		// 	var V0 = vars.V;
-		// 	var o_c = vars.stages.CO.o_3;
-			
-		// 	return 1 / o_c * (dVc / V0);
-		// })(),
-		// mvT_alt: (() => {
-		// 	/*- mv = ΔVc/V0 / (ui - uc) x 1000
-			
-		// 		mv : volume compressibility (MPa-1)
-		// 		ΔVc: volumeverandering in proefstuk na consolidatie (mm3)
-		// 		V0: volume van proefstuk voor test (mm3)
-		// 		ui: poriënwaterspanning bij begin van consolidatie (kPa)
-		// 		uf: poriënwaterspanning bij eind van consolidatiefase (kPa)
-		// 	*/
-		// 	var st = vars.stages.CO;
-		// 	return (st.dV / vars.V) / (st.ui - st.uf) * 1000;
-		// })(),
 		EvT: (() => {
 			
 			return (vars.H - vars.stages.CO.H) / vars.H * 100;
@@ -251,13 +193,31 @@ function setup_stages_1(vars, sacosh) {
 	});
 
 }
-function setup_shifting(vars) {
+function setup_shifting(vars, root) {
 	var shifted = js.get("overrides.origin-shifting", vars);
 	for(var attribute in shifted) {
 		var info = shifted[attribute];
-		if(info[0]) {
-			var delta = info[0].delta || 0;
-			vars.stages.SH.measurements.forEach((mt, i, arr) => {
+		for(var i in info) {
+			var stage, delta = info[i].delta || 0;
+			
+			if(i === "0" || i === 0) {
+				stage = vars.stages.SH;
+			} else {
+				const samples = [
+			    	js.$[root.ud("#select-sample-1").getValue()], 
+			    	js.$[root.ud("#select-sample-2").getValue()], 
+			    	js.$[root.ud("#select-sample-3").getValue()]
+			    ];
+			    
+			    stage = samples[i];
+			    if(!stage) {
+			    	continue;
+			    }
+				stage = stage.vars("control")
+					.qs("#measurements")
+					.vars(["variables.stages.SH"]);
+			}
+			stage.measurements.forEach((mt, i, arr) => {
 				const attrs = [];
 				if(attribute === "txEHSR_clipped" || attribute === "txDS" || attribute === "") {
 					attrs.push(
@@ -527,8 +487,9 @@ function setup_stages_2(vars) {
 			var t100 = vars.stages.CO.t100;
 			var f = 1 / (365.2 * 24 * 3600);
 			
-			// TODO based on whether filter paper is being used, the lambda changes
-			var fp = false, r = H/D;
+			// based on whether filter paper is being used, the lambda changes
+			const fp = vars.headerValue("Side Drains Used") === "y";
+			var r = H/D;
 			var lambda = fp ? 4 * (1 + 2*r) * (1 + 2*r) : r * r;
 
 			return f * (c * D * D) / (lambda * t100 * t100); // m2/year
@@ -1175,7 +1136,7 @@ function renderChart(vars, seriesTitle, valueAxisTitle, valueField, categoryFiel
     this.vars("rendering", true);
 
 	const shifted = js.get(`overrides.origin-shifting.${valueField}`, vars);
-	// this.print("shifted." + valueField, shifted);
+	this.print("shifted." + valueField, shifted);
 	
     const index = {};
 	sampleMeasurements.map((arr, i) => {
@@ -1362,6 +1323,15 @@ function renderChart_MohrCircles(vars, seriesTitle, valueAxisTitle) {
     
 	this.getNode().qs("svg")._description = series[0].title;
 }
+function undoOriginShifting(root, vars) {
+	vars.measurements.forEach(mt => {
+		Object.keys(mt).filter(k => k.endsWith("___")).forEach(key => {
+			mt[key.substring(0, key.length - 3)] = mt[key];
+			delete mt[key];
+		});
+	});
+}
+
 
 /* Event Handlers */
 const handlers = {
@@ -1468,15 +1438,20 @@ const handlers = {
 	    
         const valueField = "txVC", categoryField = "minutes_sqrt";
         const trendLines = [], guides = [];
-        const colors = GDS.colors;
         const changedLines = js.get("overrides.graphs.VolumeChange.lines", vars) || [];
 
 	    this.setTimeout("render", _=>renderChart.call(this, vars, 
 	    	locale("Graph:VolumeChange.title.stage-F"), 
 	    	locale("Graph:VolumeChange.title.stage-F"),
-	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_T, 
+	    	"txVC", "minutes_sqrt", selected, false, true, GDS.key_t, 
 	    	(evt) => { // callback to provide options and get a grip on calculated stageMeasurements
 		        const stageMeasurements = evt.stageMeasurements;
+
+				const colors = [
+			    	js.$[this.ud("#select-sample-1").getValue()], 
+			    	js.$[this.ud("#select-sample-2").getValue()], 
+			    	js.$[this.ud("#select-sample-3").getValue()]
+			    ].map((o, i) => o && GDS.colors[i]).filter(o => o);
 		        
 		        evt.sampleMeasurements.forEach((a, i) => {
 		        	const stm = stageMeasurements[i];
@@ -1494,22 +1469,22 @@ const handlers = {
 					        finalXValue: ls.end[x] * 10, finalValue: ls.m * ls.end[x] * 10 + ls.b,
 					        lineColor: colors[i], lineAlpha: 0.35, editable: true
 			            };
-
+			            
 					const t100 = (max[y] - ls.b) / ls.m;
 		            trendLines.push({
 						initialXValue: ls.start[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.start[x], finalValue: 100,
-						lineColor: colors[i], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.5,
 						dashLength: 2
 		            }, {
 						initialXValue: ls.end[x], initialValue: 0, //vertical ls-range
 						finalXValue: ls.end[x], finalValue: 100,
-						lineColor: colors[i], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.5,
 						dashLength: 2
 		            }, {
 						initialXValue: 0, initialValue: max[y], //horizontal 100% consolidation line
 						finalXValue: 100, finalValue: max[y],
-						lineColor: colors[i], lineAlpha: 0.05,
+						lineColor: colors[i], lineAlpha: 0.5,
 						dashLength: 2
 		            }, 
 		            lastLine);
@@ -1535,7 +1510,7 @@ const handlers = {
 	    this.setTimeout("render", _=>renderChart.call(this, vars, 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
 	    	locale("Graph:PorePressureDissipation.title.stage-F"), 
-	    	"txPWPR", "minutes", selected, true, false, GDS.key_T), 0);
+	    	"txPWPR", "minutes", selected, true, false, GDS.key_t), 0);
 	}, 
 	'#graph_DeviatorStress onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
@@ -1808,6 +1783,10 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 				sacosh.type = this.ud("#input-CO-type").getValue();
 				
 				var type = this.ud("#select-type").getValue();
+				if(type === "") {
+					this.ud("#select-type").setValue(type = "CIUc");
+				}
+
 				this.ud("#tabs-graphs")
 					.getControls().filter(c => c instanceof Tab)
 					.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
@@ -1818,7 +1797,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			// setup_casagrande(vars);
 			setup_taylor(vars);
 			setup_stages_1(vars, sacosh);
-			setup_shifting(vars);
+			setup_shifting(vars, this);
 			setup_measurements(vars);
 			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
@@ -2043,7 +2022,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 	]],
     [("#reflect-overrides"), {
     	on(evt) {
-    		var vars = this.vars(["variables"]);
+    		var vars = this.vars(["variables"]), root = this.up();
 
     		if(evt.overrides) {
     			vars.overrides = evt.overrides;
@@ -2051,12 +2030,16 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
     			if(!vars.overrides) return;
     			delete vars.overrides.graphs;
     			delete vars.overrides.photos;
+    			delete vars.overrides.inputs;
+    			delete vars.overrides['origin-shifting'];
     			this.ud("#bar-user-inputs").getControls().forEach(c => {
     				if(c['@properties'].value !== undefined) {
     					c.revertPropertyValue("value");
     				}
     			});
-    			GDSFotos.clearAll(this.up());
+    			GDSFotos.clearAll(root);
+    			undoOriginShifting(root, vars);
+    			this.ud("#refresh").execute();
     		}
 
 			this.ud("#graphs").getControls().map(c => c.render());
@@ -2338,6 +2321,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			classes: "single",
 			vars: {
 				'allow-origin-shifting': false,
+				// 'editing-bullets': true, 
 				TrendLineEditor_stop(vars, stage, chart, owner) {
 					var modified;
 					chart.trendLines.forEach((tl, index) => {
