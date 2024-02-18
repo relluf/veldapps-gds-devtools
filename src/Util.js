@@ -175,12 +175,20 @@ define(["locale"], Util => {
 	        currentSlope = nextSlope;
 	    }
 	    
-	    // Controleer na de lus om te zien of het laatste segment het langste was
-	    if (currentStableSlopeLength > maxStableSlopeLength) {
+	    // Het eerste segment is gevonden
+	    if(maxStableSlopeRange.end[x] === 0) {
 	        maxStableSlopeRange = {
-	            start: {[x]: data[data.length - 1 - currentStableSlopeLength][x], [y]: data[data.length - 1 - currentStableSlopeLength][y]},
-	            end: {[x]: data[data.length - 1][x], [y]: data[data.length - 1][y]}
+	            start: {[x]: data[0][x], [y]: data[0][y]},
+	            end: {[x]: data[1][x], [y]: data[1][y]}
 	        };
+	    } else {
+	    	// Controleer na de lus om te zien of het laatste segment het langste was
+	    	if (currentStableSlopeLength > maxStableSlopeLength) {
+		        maxStableSlopeRange = {
+		            start: {[x]: data[data.length - 1 - currentStableSlopeLength][x], [y]: data[data.length - 1 - currentStableSlopeLength][y]},
+		            end: {[x]: data[data.length - 1][x], [y]: data[data.length - 1][y]}
+		        };
+		    }
 	    }
 	    
 	    return maxStableSlopeRange;
