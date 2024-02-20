@@ -34,7 +34,7 @@ const css = {
 		"&.pdf.generate .multiple > div": "height: 470px; width:850px; position:absolute;top:0;left:0;",
 		"&.pdf .multiple > div.selected": "background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);",
 		"div.selected": "background-color: rgba(56, 121, 217, 0.075); border: 3px dashed rgb(56, 121, 217);",
-		"div.editing": "background-color: #f0f0f0; border: 3px dashed orange;top:0;left:0;right:0;bottom:0;z-index:1;position:absolute;width:auto;height:auto;margin:5px;",
+		"div.editing": "background-color: #f0f0f0; border: 3px dashed orange;top:0;left:0;right:0;bottom:0;z-index:1;position:absolute;width:auto;height:-webkit-fill-available;margin:5px;",
 		// ".amcharts-main-div": "border: 3px solid transparent;"
 	};
 
@@ -177,6 +177,12 @@ const handlers = {
 					chart.validateNow();
 				}
 			} else {
+				const allow = graph.vars("allow-origin-shifting");
+				if(allow || graph.vars("editing-bullets")) {
+					chart.graphs.forEach(g => g.bullet = "round");
+					chart.validateNow();
+				}
+
 				vars.editor = new GDS.TrendLine.Editor(vars, vars.stages[stage], chart, graph);
 				node = graph.getNode();
 				node.previous_scrollTop = node.scrollTop;
@@ -184,12 +190,6 @@ const handlers = {
 				graph._parent.focus();
 				if(stage !== undefined) {
 					this.ud("#popup-edit-graph-stage").getControls().forEach((c, i) => c.setSelected(i === stage ? true : "never"));
-				}
-				
-				const allow = graph.vars("allow-origin-shifting");
-				if(allow || graph.vars("editing-bullets")) {
-					chart.graphs.forEach(g => g.bullet = "round");
-					chart.validateNow();
 				}
 			}
 
@@ -339,9 +339,10 @@ function getSelectedGraph(cmp) {
 		["vcl/ui/Panel", ("panel-edit-graph"), {
 			align: "top", autoSize: "height", groupIndex: 1,
 			css: {
-				"": "padding:8px;text-align:center;",
-				">*": "margin-right: 4px;" ,
-				"input": "text-align:center;width:40px;border-radius: 5px; border-width: 1px; border-color: rgb(240, 240, 240); padding: 2px 4px;"
+				'': "text-align:center;",
+				'>*': "margin-right: 4px;" ,
+				'input:not([type="checkbox"])': "text-align:center;width:40px;border-radius: 5px; border-width: 1px; border-color: rgb(240, 240, 240); padding: 2px 4px;",
+				'.{./Button}': "vertical-align:middle;"
 		    },
 			visible: false
 		}]
