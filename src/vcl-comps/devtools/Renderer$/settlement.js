@@ -750,11 +750,11 @@ function setup_koppejan(vars, opts) {
 					- extrp1(t-0)
 						= np1	+ rc1 log((t-0))
 				 * CUR pagina 41 
-					= npn	+ rc1 * [log (t) - log (t-t1)]
-							+ rc2 * [log (t-t1) - log (t-t2)]
-							+ .... 
-							+ rc(n-1) * [log (t-t(n-2)) - log (t-t(n-1))]
-							+ rc(n) *    log (t-t(n-1))
+						= npn	+ rc1 * [log (t) - log (t-t1)]
+								+ rc2 * [log (t-t1) - log (t-t2)]
+								+ .... 
+								+ rc(n-1) * [log (t-t(n-2)) - log (t-t(n-1))]
+								+ rc(n) *    log (t-t(n-1))
 				*/
 				// if(t === 1) return slopes[n].last[GDS.key_d]; // uncomment to return settlement after 1 day
 				
@@ -800,7 +800,6 @@ function setup_koppejan(vars, opts) {
 					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (serie2[o[0]].y + LLi_e.sN1N2.y) / 2), y: (serie2[o[0]].y + LLi_e.sN1N2.y) / 2 }
 				]), vars)
 			}
-			
 		}
 		
 		if(points) {
