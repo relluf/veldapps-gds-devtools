@@ -1058,16 +1058,19 @@ function makeChart(c, opts) {
 			const teg = this.udr("#toggle-edit-graph");
 			const active = teg.getState();
 			if(active && evt && e.event.altKey) {
-				const names = [
+				const samples = [
 			    	js.$[this.ud("#select-sample-1").getValue()], 
 			    	js.$[this.ud("#select-sample-2").getValue()], 
 			    	js.$[this.ud("#select-sample-3").getValue()]
-				].filter(n => n).map(n => n.vars("instance._values.naam"));
+				].filter(n => n);
+				
+				const names = samples.map(n => n.vars("instance._values.naam"));
 
 				const attribute = e.target.valueField;
 				const attr = attribute.substring(0, attribute.length - 1);
 				const index = e.target.index;
-				const vars = this.vars(["variables"]);
+				const vars = samples[index].qs("devtools/Editor<gds>:root").vars("variables");
+				// const vars = this.vars(["variables"]);
 				const shifted = js.get(`overrides.origin-shifting.${attr}.${index}`, vars);
 				
 				if(shifted) {
@@ -1077,12 +1080,12 @@ function makeChart(c, opts) {
 						this.setTimeout("teg", _=> teg.execute(), 500);
 
 						delete vars.overrides['origin-shifting'][attr][index];
-						this.udr("#renderer #refresh").execute();
-						this.ud("#modified").setState(true);
+						samples[index].qs("#renderer #refresh").execute();
+						samples[index].qs("#modified").setState(true);
+						this.up("Home<>").qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_")).forEach(p => p.render());
 					}
 					return;
 				}
-				
 
 				const x = e.chart.valueAxes[1].coordinateToValue(evt.x);
 				const y = e.chart.valueAxes[0].coordinateToValue(evt.y);
@@ -1095,8 +1098,9 @@ function makeChart(c, opts) {
 					teg.execute();
 					
 					js.set(`overrides.origin-shifting.${attr}.${index}`, { x: x, y: y, delta: delta }, vars);
-					this.udr("#renderer #refresh").execute();
-					this.ud("#modified").setState(true);
+					samples[index].qs("#renderer #refresh").execute();
+					samples[index].qs("#modified").setState(true);
+					this.up("Home<>").qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_")).forEach(p => p.render());
 				}
 			}
 		});
@@ -1644,7 +1648,6 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 		
 		this.nextTick(_=> { // wait for owner change, currently #0 (vcl/Application) owns this
 			const list = this._owner.down("#measurements");
-			this._owner.print(this, this._owner);
 			list.vars("autoColumns.attributes", defaultAttributes);
 		});
 
