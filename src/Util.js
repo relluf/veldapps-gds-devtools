@@ -362,7 +362,7 @@ define(["locale"], Util => {
 		}));
 		var selected = chart.trendLines.selected;
 		var node = chart.node || owner.getNode().qs(".amcharts-main-div");
-	
+
 		this.chart = chart;
 		this.stage = stage;
 		this.owner = owner;
@@ -685,7 +685,7 @@ function calc_dH(vars, stage) {
 				});
 			}
 		}
-		
+
 		vars.stages.forEach((stage, i) => {
 			stage.i = i;
 			stage.e0 = e_(stage);
@@ -1463,31 +1463,68 @@ function calc_dH(vars, stage) {
 			calc_Taylor(stage);
 		});
 	}
-	function setup_bjerrum(vars) {
+	function setup_bjerrum(vars, opts) {
 		// everything is already setup except for poriengetal (e)
 
 		var points_e, points_rek, LLi_e, LLi_rek;
 		var data_e = vars.stages.map(stage => ({ x: stage.target, y: stage.e0 }));
 		var data_rek = vars.stages.map(stage => ({ x: stage.target, y: stage.EvC }));
-		
+
+		var o = js.get("onder", opts) || [0, 1];
+		var b = js.get("boven", opts) || [2, 3];
+
+		// if(opts && opts.onder && opts.boven) {
+		// 	js.set("overrides.bjerrum_e.points_pg", [
+		// 		{ x: data_e[o[0]].x, y: data_e[o[0]].y }, 
+		// 		{ x: data_e[o[1]].x, y: data_e[o[1]].y }, 
+		// 		{ x: data_e[b[0]].x, y: data_e[b[0]].y }, 
+		// 		{ x: data_e[b[1]].x, y: data_e[b[1]].y }
+		// 	], vars)
+
+		// 	js.set("overrides.bjerrum_r.points_pg", [
+		// 		{ x: data_rek[o[0]].x, y: data_rek[o[0]].y }, 
+		// 		{ x: data_rek[o[1]].x, y: data_rek[o[1]].y }, 
+		// 		{ x: data_rek[b[0]].x, y: data_rek[b[0]].y }, 
+		// 		{ x: data_rek[b[1]].x, y: data_rek[b[1]].y }
+		// 	], vars)
+		// }
+
 		if((points_e = js.get("overrides.bjerrum_e.points_pg", vars))) {
 			LLi_e = log_line_intersect(
 				points_e[0].x, points_e[0].y, points_e[1].x, points_e[1].y, 
 				points_e[2].x, points_e[2].y, points_e[3].x, points_e[3].y);
 		} else {
 			LLi_e = log_line_intersect(
-				data_e[0].x, data_e[0].y, data_e[1].x, data_e[1].y, 
-				data_e[2].x, data_e[2].y, data_e[3].x, data_e[3].y);
+				data_e[o[0]].x, data_e[o[0]].y, data_e[o[1]].x, data_e[o[1]].y, 
+				data_e[b[0]].x, data_e[b[0]].y, data_e[b[1]].x, data_e[b[1]].y);
+
+			if(opts && opts.onder && opts.boven) {
+				js.set("overrides.bjerrum_e.points_pg", (points_e = [
+					{ x: data_e[o[0]].x, y: data_e[o[0]].y }, 
+					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (data_e[b[0]].y + LLi_e.sN1N2.y) / 2), y: (data_e[b[0]].y + LLi_e.sN1N2.y) / 2 },
+					{ x: data_e[b[1]].x, y: data_e[b[1]].y }, 
+					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data_e[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data_e[o[0]].y + LLi_e.sN1N2.y) / 2 }
+				]), vars)
+			}
 		}
-		
+
 		if((points_rek = js.get("overrides.bjerrum_r.points_pg", vars))) {
 			LLi_rek = log_line_intersect(
 				points_rek[0].x, points_rek[0].y, points_rek[1].x, points_rek[1].y, 
 				points_rek[2].x, points_rek[2].y, points_rek[3].x, points_rek[3].y);
 		} else {
 			LLi_rek = log_line_intersect(
-				data_rek[0].x, data_rek[0].y, data_rek[1].x, data_rek[1].y, 
-				data_rek[2].x, data_rek[2].y, data_rek[3].x, data_rek[3].y);
+				data_rek[o[0]].x, data_rek[o[0]].y, data_rek[o[1]].x, data_rek[o[1]].y, 
+				data_rek[b[0]].x, data_rek[b[0]].y, data_rek[b[1]].x, data_rek[b[1]].y);
+				
+			if(opts && opts.onder && opts.boven) {
+				js.set("overrides.bjerrum_r.points_pg", (points_rek = [
+					{ x: data_rek[o[0]].x, y: data_rek[o[0]].y }, 
+					{ x: LLi_rek.b1 * Math.pow(LLi_rek.g1, (data_rek[b[0]].y + LLi_rek.sN1N2.y) / 2), y: (data_rek[b[0]].y + LLi_rek.sN1N2.y) / 2 },
+					{ x: data_rek[b[1]].x, y: data_rek[b[1]].y }, 
+					{ x: LLi_rek.b2 * Math.pow(LLi_rek.g2, (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2), y: (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2 }
+				]), vars)
+			}
 		}
 	
 		vars.bjerrum = {
@@ -1499,18 +1536,30 @@ function calc_dH(vars, stage) {
 			LLi_rek: LLi_rek
 		};
 	}
-	function setup_isotachen(vars) {
+	function setup_isotachen(vars, opts) {
 		var LLi_e, points;
 		var data = vars.stages.map(stage => ({ x: stage.target, y: stage.EvH }));
 		
-		if((points = js.get("overrides.isotachen.points_pg", vars))) {
+		var o = js.get("onder", opts) || [1, 2];
+		var b = js.get("boven", opts) || [3, 4];
+		
+		if(!opts && (points = js.get("overrides.isotachen.points_pg", vars))) {
 			LLi_e = log_line_intersect(
 				points[0].x, points[0].y, points[1].x, points[1].y, 
 				points[2].x, points[2].y, points[3].x, points[3].y);
 		} else {
 			LLi_e = log_line_intersect(
-				data[0].x, data[0].y, data[1].x, data[1].y, 
-				data[2].x, data[2].y, data[3].x, data[3].y);
+				data[o[0]].x, data[o[0]].y, data[o[1]].x, data[o[1]].y, 
+				data[b[0]].x, data[b[0]].y, data[b[1]].x, data[b[1]].y);
+
+			if(opts && opts.onder && opts.boven) {
+				js.set("overrides.isotachen.points_pg", (points = [
+					{ x: data[o[0]].x, y: data[o[0]].y }, 
+					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (data[b[0]].y + LLi_e.sN1N2.y) / 2), y: (data[b[0]].y + LLi_e.sN1N2.y) / 2 },
+					{ x: data[b[1]].x, y: data[b[1]].y }, 
+					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data[o[0]].y + LLi_e.sN1N2.y) / 2 }
+				]), vars)
+			}
 		}
 		
 		/* for the values of the c-parameter, the curve (EvH log t) should be considered */

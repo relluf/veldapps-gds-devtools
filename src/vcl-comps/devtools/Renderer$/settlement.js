@@ -596,10 +596,10 @@ const handlers = {
 					}],
 				}, {
 					id: "x1", title: "Duur [dagen] → ", position: "bottom", 
+					synchronizeWith: "x2", synchronizationMultiplier: 1,
 					logarithmic: true, minimum: 0.01, maximum: max_X
 				}, {
 					id: "x2", _title: "Belasting [kPa] → ", position: "top",
-					synchronizeWith: "x1", synchronizationMultiplier: 1,
 					logarithmic: true, minimum: 0.01,
 					guides: [{
 						value: LLi_1.sN1N2.x, inside: true, lineAlpha: 0,
@@ -620,20 +620,20 @@ function setup_casagrande(vars) {
 function setup_taylor(vars) {
 	return GDS.setup_taylor(vars);
 }
-function setup_bjerrum(vars) {
-	return GDS.setup_bjerrum(vars);
+function setup_bjerrum(vars, opts) {
+	return GDS.setup_bjerrum(vars, opts);
 }
-function setup_isotachen(vars) {
-	return GDS.setup_isotachen(vars);
+function setup_isotachen(vars, opts) {
+	return GDS.setup_isotachen(vars, opts);
 }
-function setup_koppejan(vars) { 
+function setup_koppejan(vars, opts) { 
 	/*- initialize y attribute */
 	vars.measurements.forEach(m => {
 		m.x2 = m[GDS.key_as];
 		m.y = (m.y_koppejan = m[GDS.key_d]); // reset because of Taylor/CG
 		m.trap = "Trap-" + m.stage;
 	});
-	
+
 	/*- ignore the 1st ... */
 	var measurements = vars.measurements;//.slice(1);
 
@@ -777,16 +777,30 @@ function setup_koppejan(vars) {
 				lineAlpha: 1, lineColor: "gray", dashLength: 3
 			}];
 		});
+	
 		if((points = js.get("overrides.koppejan.points_pg", vars))) {
 			points.forEach(m => { m.y_koppejan = m.y; });
 			LLi_1 = GDS.log_line_intersect(
 					points[0].x, points[0].y_koppejan, points[1].x, points[1].y_koppejan, 
 					points[2].x, points[2].y_koppejan, points[3].x, points[3].y_koppejan);
 		} else {
+			var o = js.get("onder", opts) || [0, 1];
+			var b = js.get("boven", opts) || [2, 3];
+
 			serie2.forEach(m => m.y = (m.y_koppejan = m[GDS.key_d])); // reset
 			LLi_1 = GDS.log_line_intersect(
-					serie2[0].x2, serie2[0].y_koppejan, serie2[1].x2, serie2[1].y_koppejan, 
-					serie2[2].x2, serie2[2].y_koppejan, serie2[3].x2, serie2[3].y_koppejan);
+					serie2[o[0]].x2, serie2[o[0]].y_koppejan, serie2[o[1]].x2, serie2[o[1]].y_koppejan, 
+					serie2[b[0]].x2, serie2[b[0]].y_koppejan, serie2[b[1]].x2, serie2[b[1]].y_koppejan);
+					
+			if(opts && opts.onder && opts.boven) {
+				js.set("overrides.koppejan.points_pg", (points = [
+					{ x: serie2[o[0]].x, y: serie2[o[0]].y }, 
+					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (serie2[b[0]].y + LLi_e.sN1N2.y) / 2), y: (serie2[b[0]].y + LLi_e.sN1N2.y) / 2 },
+					{ x: serie2[b[1]].x, y: serie2[b[1]].y }, 
+					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (serie2[o[0]].y + LLi_e.sN1N2.y) / 2), y: (serie2[o[0]].y + LLi_e.sN1N2.y) / 2 }
+				]), vars)
+			}
+			
 		}
 		
 		if(points) {
@@ -1261,6 +1275,67 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 		}
 	}
 }, [
+	[("vcl/Action"), "determine-pg", {
+		content: "Pg bepalen",
+		on() {
+			const tabs = this.ud("#tabs-graphs");
+			const selected = tabs.getSelectedControl(1);
+			const onder = this.ud("#label-onder").getValue();
+			const boven = this.ud("#label-boven").getValue();
+			const all = this.ud("#determine-pg-all-graphs").getValue();
+
+
+			if(confirm(js.sf("De grensspanningslijnen van de grafiek%s opnieuw worden ingetekend op basis van de stadia:\n - (onder: %s) en (boven: %s)\n\nKies OK om door te gaan.", all ? "en\n - Bjerrum (poriëngetal) en (rek),\n - Isotachen en\n - Koppejan\nzullen" : js.sf(" %s zal", selected.getText()), onder, boven ))) {
+				
+				const vars = this.vars(["variables"]);
+				const b = boven.split("-").map(n => parseInt(n, 10) - 1);
+				const o = onder.split("-").map(n => parseInt(n, 10) - 1);
+				
+				this.ud("#toggle-edit-graph").execute();
+				
+				if(all) {
+					
+					delete js.get("overrides.bjerrum_e", vars).points_pg;
+					delete js.get("overrides.bjerrum_r", vars).points_pg;
+					delete js.get("overrides.isotachen", vars).points_pg;
+					delete js.get("overrides.koppejan", vars).points_pg;
+					
+					setup_bjerrum(vars, { boven: b, onder: o });
+					setup_isotachen(vars, { boven: b, onder: o });
+					setup_koppejan(vars, { boven: b, onder: o });
+					
+				} else {
+					switch(selected.getIndex()) {
+						case 3:
+							delete js.get("overrides.bjerrum_e", vars).points_pg;
+							setup_bjerrum(vars, { boven: b, onder: o });
+							break;
+							
+						case 4:
+							delete js.get("overrides.bjerrum_r", vars).points_pg;
+							setup_bjerrum(vars, { boven: b, onder: o });
+							break;
+							
+						case 5:
+							delete js.get("overrides.isotachen", vars).points_pg;
+							setup_isotachen(vars, { boven: b, onder: o });
+							break;
+							
+						case 6:
+							delete js.get("overrides.koppejan", vars).points_pg;
+							setup_koppejan(vars, { boven: b, onder: o });
+							break;
+					}
+				}
+
+				vars.parameters.update();
+				var graphs = this.up().qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_"));
+				graphs.forEach(graph => graph.render());
+
+			}
+		}
+	}],
+	
     [("#reflect-overrides"), {
     	on(evt) {
     		var vars = this.vars(["variables"]);
@@ -1535,6 +1610,8 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 			["vcl/ui/Input", "label-onder", { placeholder: "#-#"}],
 			["vcl/ui/Element", { element: "span", content: "boven Pg:"}],
 			["vcl/ui/Input", "label-boven", { placeholder: "#-#"}],
+			["vcl/ui/Button", { action: "determine-pg" }],
+			["vcl/ui/Checkbox", "determine-pg-all-graphs", { checked: true, label: "Alle grafieken"}]
 		]]
 	]]
 ]];
