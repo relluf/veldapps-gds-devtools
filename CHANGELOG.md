@@ -17,7 +17,6 @@
 * adds triaxial test types
 * reduces number of visible columns of measurements list via vars("autoColumns.attributes") - defaults to defaultAttributes improves column filtering, allows for exact or startsWith pattern works around vcl/ui/ListColumn visibility bug #VA20240202-1
 
-
 ### 2024/02/02: 2.0.8
 
 * Adds extra validation calculations concerning Koppejan and linear regressions (as requested by Salvador Paz Noriega)
