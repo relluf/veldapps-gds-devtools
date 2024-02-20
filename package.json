@@ -1,6 +1,6 @@
 {
   "name": "veldapps-gds-devtools",
-  "version": "2.0.11",
+  "version": "2.0.12",
   "description": "Veldapps' GDS development tools",
   "main": "index.js",
   "scripts": {

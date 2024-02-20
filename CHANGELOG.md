@@ -1,3 +1,22 @@
+### 2024/02/19: 2.0.12
+
+* Fixes (more or less) height for graphs being edited fixes support for bullets after editing
+* `Util.find\_linear\_segment` to return 1st segment if nothing was found fixes t100 rendering in Volumeverandering 
+
+**Triaxial**
+
+* Report CUIc is selected by default 
+* Advances development of origin-shifting
+* Fixes NaN for "consolidation coefficient" by returning first segment instead of inutil <zero>-segment
+* Fixes resetting overrides (Nieuwe mutatie)
+* Implements filterpaper dependency for `stages.CO.cvT` 
+
+**Settlement**
+
+* Implements specifying/determining Pg-lines based upon onder/boven-input
+
+![20240219-235406-WrOHYH](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202402/20240219-235406-WrOHYH.png)
+
 ### 2024/02/11: 2.0.11
 
 * Fixes the linear regression variants for Koppejan
