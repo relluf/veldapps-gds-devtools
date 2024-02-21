@@ -575,6 +575,7 @@ const handlers = {
 			var trendLines = GDS.cp(vars.koppejan.trendLines);
 			var LLi_1 = vars.koppejan.LLi_1;
 			var max_X = vars.stages.reduce((m, s) => (m = Math.max(m, s.target)), 0);
+			var serializing = this.ud("#graphs").hasClass("pdf");
 			
 			if(max_X < 10000) {
 				max_X = Math.max(1000, max_X > 500 ? 10000 : max_X);
@@ -596,10 +597,10 @@ const handlers = {
 					}],
 				}, {
 					id: "x1", title: "Duur [dagen] → ", position: "bottom", 
-					synchronizeWith: "x2", synchronizationMultiplier: 1,
 					logarithmic: true, minimum: 0.01, maximum: max_X
 				}, {
 					id: "x2", _title: "Belasting [kPa] → ", position: "top",
+					synchronizeWith: "x1", synchronizationMultiplier: 1,
 					logarithmic: true, minimum: 0.01,
 					guides: [{
 						value: LLi_1.sN1N2.x, inside: true, lineAlpha: 0,
@@ -759,9 +760,12 @@ function setup_koppejan(vars, opts) {
 				// if(t === 1) return slopes[n].last[GDS.key_d]; // uncomment to return settlement after 1 day
 				
 				var ez = slopes[n].np + slopes[n].rc * Math.log10(t > n ? t - n : 1);
+// console.log(`extrp(${n}, ${t}) = slopes[${n}].np + slopes[${n}].rc * Math.log10(${t} > ${n} ? ${t - n} : 1);`)
 				while(t > n && n--) { // extrapoleer voor t > t(n) (zie: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202401/20240110-104245-rzxRdl.png)
 					ez += slopes[n].rc * (Math.log10( ((t - n) / (t - (n + 1)) )));
+// console.log(`\t\t + slopes[${n}].rc * (Math.log10( ((${t - n}) / (${t - (n + 1)}) )));`)
 				}
+console.log("= ", ez);
 				return ez;
 			}
 			

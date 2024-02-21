@@ -1,7 +1,7 @@
 ### 2024/02/19: 2.0.12
 
 * Fixes (more or less) height for graphs being edited fixes support for bullets after editing
-* `Util.find\_linear\_segment` to return 1st segment if nothing was found fixes t100 rendering in Volumeverandering 
+* `Util.find_linear_segment` to return 1st segment if nothing was found fixes t100 rendering in Volumeverandering 
 
 **Triaxial**
 
