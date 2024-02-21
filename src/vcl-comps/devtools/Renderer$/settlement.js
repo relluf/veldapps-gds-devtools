@@ -113,7 +113,7 @@ function makeChart(c, opts) {
 		});
 		// options.valueAxes.forEach(ax => ax.precision = 4);
 		var emit = (a, b) => {
-			// this.print("emit: " + a, b);
+			this.print("emit: " + a, b);
 			this.emit(a, b);
 		};
 		var chart = AmCharts.makeChart(node, options);
@@ -125,9 +125,6 @@ function makeChart(c, opts) {
 		chart.addListener("dataUpdated", (e) => emit("rendered", [e, "dataUpdated"]));
 		chart.addListener("rendered", (e) => emit("rendered", [e]));
 		chart.chartCursor.addListener("moved", (e) => emit("cursor-moved", [e]));
-		// chart.addListener("init", (e) => emit("rendered", [e, "init"]));
-		// chart.addListener("zoomed", (e) => emit("zoomed", [e]));
-		// chart.addListener("changed", (e) => emit("changed", [e]));
 	}
 	
 	opts.immediate ? render.apply(c, [opts || {}]) : c.nextTick(() => render.apply(c, [opts || {}]));
@@ -583,10 +580,7 @@ const handlers = {
 
 			this.vars("am", { series: series, data: vars.measurements.slice(1) });
 			
-			makeChart(this, { 
-				type: "xy",
-				colors: ["black", "rgb(56, 121, 217)"],
-			    valueAxes: [{
+			var valueAxes =  [{
 			        id: "y1", reversed: true, minimum: 0,
 				}, {
 			        id: "y2", position: "right", reversed: true, minimum: 0,
@@ -600,13 +594,27 @@ const handlers = {
 					logarithmic: true, minimum: 0.01, maximum: max_X
 				}, {
 					id: "x2", _title: "Belasting [kPa] → ", position: "top",
-					synchronizeWith: "x1", synchronizationMultiplier: 1,
-					logarithmic: true, minimum: 0.01,
+					logarithmic: true, minimum: 0.01, maximum: max_X,
 					guides: [{
 						value: LLi_1.sN1N2.x, inside: true, lineAlpha: 0,
 						label: js.sf("%.3f kPa", LLi_1.sN1N2.x)
 					}]
-				}],
+				}];
+
+			if(serializing) {
+				js.mi(valueAxes[3], { 
+					synchronizeWith: "x1", 
+					synchronizationMultiplier: 1 });
+			} else {		
+				js.mi(valueAxes[2], { 
+					synchronizeWith: "x2", 
+					synchronizationMultiplier: 1 });
+			}
+			
+			makeChart(this, { 
+				type: "xy",
+				colors: ["black", "rgb(56, 121, 217)"],
+			    valueAxes: valueAxes,
 				trendLines: trendLines
 			});
 			
@@ -798,10 +806,10 @@ console.log("= ", ez);
 					
 			if(opts && opts.onder && opts.boven) {
 				js.set("overrides.koppejan.points_pg", (points = [
-					{ x: serie2[o[0]].x, y: serie2[o[0]].y }, 
-					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (serie2[b[0]].y + LLi_e.sN1N2.y) / 2), y: (serie2[b[0]].y + LLi_e.sN1N2.y) / 2 },
-					{ x: serie2[b[1]].x, y: serie2[b[1]].y }, 
-					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (serie2[o[0]].y + LLi_e.sN1N2.y) / 2), y: (serie2[o[0]].y + LLi_e.sN1N2.y) / 2 }
+					{ x: serie2[o[0]].x2, y: serie2[o[0]].y }, 
+					{ x: LLi_1.b1 * Math.pow(LLi_1.g1, (serie2[b[0]].y + LLi_1.sN1N2.y) / 2), y: (serie2[b[0]].y + LLi_1.sN1N2.y) / 2 },
+					{ x: serie2[b[1]].x2, y: serie2[b[1]].y }, 
+					{ x: LLi_1.b2 * Math.pow(LLi_1.g2, (serie2[o[0]].y + LLi_1.sN1N2.y) / 2), y: (serie2[o[0]].y + LLi_1.sN1N2.y) / 2 }
 				]), vars)
 			}
 		}
