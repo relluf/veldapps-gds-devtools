@@ -619,6 +619,8 @@ function setup_mohr_coulomb(vars, root) {
 
 		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
 		mohr.c_ = mohr.b / Math.cos(mohr.phi_ * Math.PI / 180);
+		
+		if(mohr.c_ < 0) mohr.c_ = 0;
 
 		for(var s = 0; s < shss.length; ++s) {
 			shss[s][k].mohr = js.mi(mohr);
