@@ -113,7 +113,7 @@ function makeChart(c, opts) {
 		});
 		// options.valueAxes.forEach(ax => ax.precision = 4);
 		var emit = (a, b) => {
-			this.print("emit: " + a, b);
+			// this.print("emit: " + a, b);
 			this.emit(a, b);
 		};
 		var chart = AmCharts.makeChart(node, options);
@@ -584,7 +584,6 @@ const handlers = {
 			        id: "y1", reversed: true, minimum: 0,
 				}, {
 			        id: "y2", position: "right", reversed: true, minimum: 0,
-			        synchronizeWith: "y1", synchronizationMultiplier: 1,
 					guides: [{
 						value: LLi_1.sN1N2.y, inside: true, lineAlpha: 0,
 						label: js.sf("%.3f %%", LLi_1.sN1N2.y / vars.Hi * 100),
@@ -602,12 +601,12 @@ const handlers = {
 				}];
 
 			if(serializing) {
+				js.mi(valueAxes[1], { 
+			        synchronizeWith: "y1", 
+			        synchronizationMultiplier: 1 });
+
 				js.mi(valueAxes[3], { 
 					synchronizeWith: "x1", 
-					synchronizationMultiplier: 1 });
-			} else {		
-				js.mi(valueAxes[2], { 
-					synchronizeWith: "x2", 
 					synchronizationMultiplier: 1 });
 			}
 			
@@ -617,6 +616,20 @@ const handlers = {
 			    valueAxes: valueAxes,
 				trendLines: trendLines
 			});
+			
+			if(!serializing) {
+				var chart = this.vars("am.chart");
+
+				js.mi(chart.valueAxes[0], { 
+					synchronizeWith: "y2", 
+					synchronizationMultiplier: 1 });
+
+				js.mi(chart.valueAxes[2], { 
+					synchronizeWith: "x2", 
+					synchronizationMultiplier: 1 });
+
+				chart.validateNow();
+			}
 			
 		}, 125);
 	}

@@ -1,3 +1,13 @@
+### 2024/02/22: 2.0.13
+
+**Triaxial**
+
+* Adjusts/gaps Mohr's c_ (c') to 0 when it becomes negative
+
+**Settlement**
+
+* Improves axes zooming and synchronization for Koppejan
+
 ### 2024/02/19: 2.0.12
 
 * Fixes (more or less) height for graphs being edited fixes support for bullets after editing
