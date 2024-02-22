@@ -127,7 +127,7 @@ function makeChart(c, opts) {
 		chart.chartCursor.addListener("moved", (e) => emit("cursor-moved", [e]));
 	}
 	
-	opts.immediate ? render.apply(c, [opts || {}]) : c.nextTick(() => render.apply(c, [opts || {}]));
+	return render.apply(c, [opts || {}]);
 }
 
 /* Other */
@@ -224,7 +224,6 @@ const handlers = {
 				this.vars("am", { series: series, stage: stage, data: stage.measurements.slice(1) });
 				this.vars("am-" + st, this.vars("am"));
 				makeChart(this, {
-					immediate: true,
 					node: this.getChildNode(st),
 					trendLines: GDS.cp(stage.casagrande.trendLines || []),
 				    valueAxes: [{
@@ -273,7 +272,6 @@ const handlers = {
 				this.vars("am", { series: series, stage: stage, data: stage.measurements });
 				this.vars("am-" + st, this.vars("am"));
 				makeChart(this, {
-					immediate: true,
 					legend: false,
 					node: this.getChildNode(st),
 					trendLines: GDS.cp(stage.taylor.trendLines || []),
@@ -320,7 +318,6 @@ const handlers = {
 				this.vars("am", { series: series, stage: stage, data: stage.measurements.slice(1) });
 				this.vars("am-" + st, this.vars("am"));
 				makeChart(this, {
-					immediate: true,
 					node: this.getChildNode(st),
 					trendLines: GDS.cp(stage.isotachen.trendLines || []),
 				    valueAxes: [{
@@ -584,6 +581,7 @@ const handlers = {
 			        id: "y1", reversed: true, minimum: 0,
 				}, {
 			        id: "y2", position: "right", reversed: true, minimum: 0,
+			        synchronizeWith: "y1", synchronizationMultiplier: 1,
 					guides: [{
 						value: LLi_1.sN1N2.y, inside: true, lineAlpha: 0,
 						label: js.sf("%.3f %%", LLi_1.sN1N2.y / vars.Hi * 100),
@@ -620,9 +618,9 @@ const handlers = {
 			if(!serializing) {
 				var chart = this.vars("am.chart");
 
-				js.mi(chart.valueAxes[0], { 
-					synchronizeWith: "y2", 
-					synchronizationMultiplier: 1 });
+				// js.mi(chart.valueAxes[0], { 
+				// 	synchronizeWith: "y2", 
+				// 	synchronizationMultiplier: 1 });
 
 				js.mi(chart.valueAxes[2], { 
 					synchronizeWith: "x2", 
