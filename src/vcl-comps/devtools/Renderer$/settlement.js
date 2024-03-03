@@ -777,14 +777,18 @@ function setup_koppejan(vars, opts) {
 								+ rc(n) *    log (t-t(n-1))
 				*/
 				// if(t === 1) return slopes[n].last[GDS.key_d]; // uncomment to return settlement after 1 day
-				
+
+				// 20240302 SPN: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240302-221712-Rv62gH.png
+				var T = t;
+				t += n;
+
 				var ez = slopes[n].np + slopes[n].rc * Math.log10(t > n ? t - n : 1);
-// console.log(`extrp(${n}, ${t}) = slopes[${n}].np + slopes[${n}].rc * Math.log10(${t} > ${n} ? ${t - n} : 1);`)
+// console.log(`extrp(${n}, ${T}) = np${n + 1}\n\t + rc${n + 1} * log(${t} > ${n} ? ${t - n} : 1);`)
 				while(t > n && n--) { // extrapoleer voor t > t(n) (zie: https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202401/20240110-104245-rzxRdl.png)
 					ez += slopes[n].rc * (Math.log10( ((t - n) / (t - (n + 1)) )));
-// console.log(`\t\t + slopes[${n}].rc * (Math.log10( ((${t - n}) / (${t - (n + 1)}) )));`)
+// console.log(`\t + rc${n + 1} * (log( ((${t - n}) / (${t - (n + 1)}) )));`)
 				}
-console.log("= ", ez);
+// console.log("= ", ez);
 				return ez;
 			}
 			
@@ -1075,11 +1079,11 @@ function setup_parameters(root, vars, headerValue) {
 	}, {
 		name: "Koppejan - Zetting (geëxtrapoleerde)",
 		items: [
-			{ name: "1 dag", unit: "mm", symbol: "ez1", value: vars.koppejan.serie2.map(o => o.ez1.toFixed(4)).join(" ") },
-			{ name: "10 dagen", unit: "mm", symbol: "ez10", value: vars.koppejan.serie2.map(o => o.ez10.toFixed(4)).join(" ") },
-			{ name: "100 dagen", unit: "mm", symbol: "ez100", value: vars.koppejan.serie2.map(o => o.ez100.toFixed(4)).join(" ") },
-			{ name: "1000 dagen", unit: "mm", symbol: "ez1000", value: vars.koppejan.serie2.map(o => o.ez1000.toFixed(4)).join(" ") },
-			{ name: "10000 dagen", unit: "mm", symbol: "ez10000", value: vars.koppejan.serie2.map(o => o.ez10000.toFixed(4)).join(" ") },
+			{ name: "1 dag", unit: "mm", symbol: "ez1", value: vars.koppejan.serie2.map(o => o.ez1.toFixed(8)).join(" ") },
+			{ name: "10 dagen", unit: "mm", symbol: "ez10", value: vars.koppejan.serie2.map(o => o.ez10.toFixed(8)).join(" ") },
+			{ name: "100 dagen", unit: "mm", symbol: "ez100", value: vars.koppejan.serie2.map(o => o.ez100.toFixed(8)).join(" ") },
+			{ name: "1000 dagen", unit: "mm", symbol: "ez1000", value: vars.koppejan.serie2.map(o => o.ez1000.toFixed(8)).join(" ") },
+			{ name: "10000 dagen", unit: "mm", symbol: "ez10000", value: vars.koppejan.serie2.map(o => o.ez10000.toFixed(8)).join(" ") },
 		]
 	}, {
 		name: "Koppejan - Parameters",
