@@ -1,17 +1,37 @@
-### 2024/02/22: 2.0.13
+### 2024/03/02: 2.0.14
+
+**Settlement**
+
+* Reports `ezN`-values fixed to 8 decimals 
+* Corrects for "begin of test-day-count"
+* Removes nextTick-strategy for rendering graphs (immediate)
 
 **Triaxial**
 
-* Adjusts/gaps Mohr's c_ (c') to 0 when it becomes negative
+* Disables calling test PDF report
+* Improves applying defaults to GDS-file settings
+* Implements SS, MS-1 and MS-3 report types
+
+### 2024/02/22: 2.0.13
 
 **Settlement**
 
 * Improves axes zooming and synchronization for Koppejan
 
+**Triaxial**
+
+* Adjusts/gaps Mohr's c_ (c') to 0 when it becomes negative
+
 ### 2024/02/19: 2.0.12
 
 * Fixes (more or less) height for graphs being edited fixes support for bullets after editing
 * `Util.find_linear_segment` to return 1st segment if nothing was found fixes t100 rendering in Volumeverandering 
+
+**Settlement**
+
+* Implements specifying/determining Pg-lines based upon onder/boven-input
+
+![20240219-235406-WrOHYH](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202402/20240219-235406-WrOHYH.png)
 
 **Triaxial**
 
@@ -20,12 +40,6 @@
 * Fixes NaN for "consolidation coefficient" by returning first segment instead of inutil <zero>-segment
 * Fixes resetting overrides (Nieuwe mutatie)
 * Implements filterpaper dependency for `stages.CO.cvT` 
-
-**Settlement**
-
-* Implements specifying/determining Pg-lines based upon onder/boven-input
-
-![20240219-235406-WrOHYH](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202402/20240219-235406-WrOHYH.png)
 
 ### 2024/02/11: 2.0.11
 
