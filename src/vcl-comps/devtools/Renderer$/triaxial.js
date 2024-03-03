@@ -609,7 +609,7 @@ function setup_mohr_coulomb(vars, root) {
     	.map(r => r && r.vars(["variables.stages.SH"]))
     	.filter(o => o);
 
-    // if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
+    if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
 
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
@@ -1399,7 +1399,10 @@ const handlers = {
 	},
 	'#bar-user-inputs onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
-			if(!this.isEnabled()) return ;//this.print("ignored bar-user-inputs change");
+
+			if(!this.isEnabled()) return component.print("!" + name, evt);
+			
+component.print(name, evt);
 
 			var modified = this.ud("#modified");
 			var blocked = modified.vars("blocked");
@@ -1425,8 +1428,12 @@ const handlers = {
 		    		var inputs = Object.fromEntries(this.qsa("< *")
 						.filter(c => (c instanceof Input) || (c instanceof Select))
 						.map(c => [c._name, c.getValue()]));
-						
+					
 		    		js.set("overrides.inputs", inputs, vars);
+		    		this.up().vars("overrides", vars.overrides);
+
+this.print("select-type", inputs['select-type']);
+this.print("inputs", { inputs: inputs, vars: vars });
 
 					this.ud("#refresh").execute();
 
@@ -1723,7 +1730,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 	},
 	handlers: handlers,
 	vars: { 
-		layout: "grafieken/documenten/Triaxiaalproef", 'layout-test': true,
+		layout: "grafieken/documenten/Triaxiaalproef", //'layout-test': true,
 		graphs: [
 			"VolumeChange",
 			"PorePressureDissipation",
@@ -1755,7 +1762,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 				this.qsa(":vars(membrane)").set("visible", membraneUsed);
 	
 				var inputs = js.get("overrides.inputs", vars);
-				var bar = this.ud("#bar-user-inputs");
+				var bar = this.qs("#bar-user-inputs");
 				bar.setEnabled(false);
 				for(var k in inputs) {
 					if(!k.startsWith("select-sample-")) {
@@ -1766,36 +1773,36 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 					}
 				}
 				bar.update(() => bar.setEnabled(true));
-	
+
 				["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
 					.forEach(key => {
-						vars[key] = parseFloat(this.ud("#input-" + key).getValue())
+						vars[key] = parseFloat(this.qs("#input-" + key).getValue())
 					});
 					
 				if(!Object.keys(sacosh).every(k => {
-					if(isNaN(sacosh[k] = parseInt(this.ud("#select-stage-" + k).getValue(), 10))) {
+					if(isNaN(sacosh[k] = parseInt(this.qs("#select-stage-" + k).getValue(), 10))) {
 	
 						vars.parameters = [];
 						vars.categories = [];
 						
-						// this.print("cleared parameters & categories");
-	
 						return false;
 					}
 					return true;
-				})) return this.ud("#bar-user-inputs").render();
+				})) return this.qs("#bar-user-inputs").render();
 				
-				sacosh.type = this.ud("#input-CO-type").getValue();
+				sacosh.type = this.qs("#input-CO-type").getValue();
 				
-				var type = this.ud("#select-type").getValue();
-				if(type === "") {
-					this.ud("#select-type").setValue(type = "CIUc");
-				}
-
-				this.ud("#tabs-graphs")
-					.getControls().filter(c => c instanceof Tab)
-					.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
-
+				bar.update(() => {
+					var type = this.qs("#select-type").getValue();
+					if(type === "") {
+						this.qs("#select-type").setValue(type = "CIUc");
+					}
+	
+					this.qs("#tabs-graphs")
+						.getControls().filter(c => c instanceof Tab)
+						.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
+					
+				});
 
 			// })();
 			
@@ -2079,10 +2086,10 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 	    		value: "CIU"
 	    	}],
 	    	["vcl/ui/Select", ("select-ssms"), {
-	    		options: ["SS", "MS"].map(type => ({value: type, content: type})),
-	    		value: "MS",
+	    		options: ["SS", "MS-1", "MS-3"].map(type => ({value: type, content: type})),
+	    		value: "MS-3",
 	    		onChange() {
-	    			const ms = (this.getValue() === "MS");
+	    			const ms = (this.getValue() !== "SS");
 	    			this.ud("#select-sample-1").getParent().setVisible(ms);
 	    			
 	    			if(!ms) {
