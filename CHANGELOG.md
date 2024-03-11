@@ -1,3 +1,17 @@
+### 2024/03/11: 2.0.15
+
+**Settlement**
+
+* Fixes an issue where `log_line_intersect` would not calculate the correct intersection when the supplied coordinates where not sorted accoring to the X-coordinate.
+* Adds keyboard shortcuts to navigate between tabs and focus filter box
+* Speeds up rendering of the Koppejan-graph
+* Adds bullets in the Koppejan-graph for the loading schedule
+
+**Triaxial**
+
+* Improves loading overriden settings
+* Using CIUc as default test type
+
 ### 2024/03/02: 2.0.14
 
 **Settlement**
