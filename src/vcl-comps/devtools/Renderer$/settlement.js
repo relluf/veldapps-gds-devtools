@@ -552,10 +552,10 @@ const handlers = {
 				xField: "daysT", yField: "y_koppejan"
 			}, {
 				title: "Zetting 1dags [mm]", xAxis: "x2", yAxis: "y1",
-				xField: "x2", yField: "ez1"
+				xField: "x2", yField: "ez1", bullet: "round"
 			}, {
 				title: "Zetting 10-daags [mm]", xAxis: "x2", yAxis: "y1",
-				xField: "x2", yField: "ez10",
+				xField: "x2", yField: "ez10", //bullet: "triangleUp",
 				lineColor: "blue", dashLength: 3, lineThickness: 1
 			}]
 			.concat([1,2,3,4,5,6].map(_ => ({
@@ -575,7 +575,8 @@ const handlers = {
 				max_X = Math.max(1000, max_X > 500 ? 10000 : max_X);
 			}
 
-			this.vars("am", { series: series, data: vars.measurements.slice(1) });
+			const speedup = (mt, i, a) => (i % 10 === 0) || mt.ez10;
+			this.vars("am", { series: series, data: vars.measurements.slice(1).filter(speedup) });
 			
 			var valueAxes =  [{
 			        id: "y1", reversed: true, minimum: 0,
@@ -1309,7 +1310,6 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 			const onder = this.ud("#label-onder").getValue();
 			const boven = this.ud("#label-boven").getValue();
 			const all = this.ud("#determine-pg-all-graphs").getValue();
-
 
 			if(confirm(js.sf("De grensspanningslijnen van de grafiek%s opnieuw worden ingetekend op basis van de stadia:\n - (onder: %s) en (boven: %s)\n\nKies OK om door te gaan.", all ? "en\n - Bjerrum (poriëngetal) en (rek),\n - Isotachen en\n - Koppejan\nzullen" : js.sf(" %s zal", selected.getText()), onder, boven ))) {
 				

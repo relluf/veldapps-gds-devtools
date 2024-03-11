@@ -216,6 +216,36 @@ const downloadCSV = (list, filename) => {
     		this.udr("#modified").setState(true);
     	}
     }],
+    
+    ["vcl/Action", ("focus-variables"), {
+    	hotkey: "Shift+Cmd+V",
+    	on() {
+    		const tab = this.udr("#tab-variables");
+    		tab.setSelected(true);
+    		tab.setTimeout("focus-q", _=> this.ud("#focus-q").execute(), 250);
+    	}
+    }],
+
+    ["vcl/Action", ("focus-measurements"), {
+    	hotkey: "Shift+Cmd+M",
+    	on() {
+    		const tab = this.udr("#tab-measurements");
+    		tab.setSelected(true);
+    		tab.setTimeout("focus-q", _=> this.ud("#focus-q").execute(), 250);
+    	}
+    }],
+
+    ["vcl/Action", ("focus-graphs"), {
+    	hotkey: "Shift+Cmd+G",
+    	on() {
+    		const tab = this.udr("#tab-graphs");
+    		if(!tab.isSelected()) {
+    			tab.setSelected(true);
+    		} else {
+    			
+    		}
+    	}
+    }],
 
 	["vcl/Action", ("focus-q"), {
 		hotkey: "MetaCtrl+191",

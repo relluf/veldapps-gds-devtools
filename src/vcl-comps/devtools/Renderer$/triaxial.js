@@ -609,12 +609,10 @@ function setup_mohr_coulomb(vars, root) {
     	.map(r => r && r.vars(["variables.stages.SH"]))
     	.filter(o => o);
 
-    if(shss.length !== 3) return root.print("mohr canceled: " + shss.length, root.vars(["resource.uri"]));
-
 	["max_q", "max_o_1o_3", "usr_Ev"].forEach((k, i) => {
 
-		const x = shss.map(e => e[k].mt.ens_s_);
-		const y = shss.map(e => e[k].mt.ss_t);
+		const x = shss.map(e => e[k]?.mt.ens_s_);
+		const y = shss.map(e => e[k]?.mt.ss_t);
 		const mohr = GDS.calc_slopeAndYIntercept(x, y);
 
 		mohr.phi_ = Math.asin(mohr.a) / (2 * Math.PI) * 360;
@@ -779,7 +777,7 @@ function setup_parameters(vars) {
 			if(item.symbol && item.symbol.startsWith(".")) {
 				item.value = js.get(js.sf("stages.SH.%s.%s", key, item.symbol.substring(1)), vars);
 				if(item.symbol.endsWith("phi_") || item.symbol.endsWith("c_")) {
-					item.value = Math.round(item.value + 0.5);
+					// item.value = Math.round(item.value + 0.5);
 				}
 			}
 		});
@@ -1400,7 +1398,7 @@ const handlers = {
 	'#bar-user-inputs onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
 
-			if(!this.isEnabled()) return component.print("!" + name, evt);
+			if(!this.isEnabled()) return;// component.print("!" + name, evt);
 			
 component.print(name, evt);
 
@@ -1418,6 +1416,11 @@ component.print(name, evt);
 			}
 
 			this.setTimeout("refresh", () => {
+				if(!this.isEnabled()) {
+					this.print("timeout triggered, but disabled now")
+					return;
+				}
+
 	    		var vars = this.vars(["variables"]);
 
 				if(vars && vars.stages) {	    		
@@ -1739,7 +1742,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			"EffectiveHighStressRatio",
 			"ShearStress",
 			"DeviatorStressQ",
-			"VolumeChange_SS",
+			"VolumeChange_SS"
 		],
 		setup() {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
@@ -1761,9 +1764,15 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 				this.qsa(":vars(filterpaper)").set("visible", drainSidesUsed);
 				this.qsa(":vars(membrane)").set("visible", membraneUsed);
 	
-				var inputs = js.get("overrides.inputs", vars);
+				var inputs = js.get("overrides.inputs", vars) || {};
 				var bar = this.qs("#bar-user-inputs");
 				bar.setEnabled(false);
+if(!inputs['select-type']) {
+	inputs['select-type'] = "CIUc";
+	this.print("setting overrides.inputs.select-type", "CIUc")
+}
+				
+this.print("overrides.inputs => bar", inputs)
 				for(var k in inputs) {
 					if(!k.startsWith("select-sample-")) {
 						var c = this.qs("#" + k);
@@ -1772,7 +1781,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 						}
 					}
 				}
-				bar.update(() => bar.setEnabled(true));
+				req("vcl/Control").updateAll(bar.qsa("< *"), () => bar.setEnabled(true));
 
 				["Kfp", "Pfp", "tm", "Em", "Evk", "alpha", "beta", "txEHSR_min", "txEHSR_max", "Ev_usr"]
 					.forEach(key => {
@@ -1794,16 +1803,20 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 				
 				bar.update(() => {
 					var type = this.qs("#select-type").getValue();
-					if(type === "") {
-						this.qs("#select-type").setValue(type = "CIUc");
-					}
-	
+					var graphs = [];
+
 					this.qs("#tabs-graphs")
 						.getControls().filter(c => c instanceof Tab)
-						.forEach(tab => tab.setVisible((tab.vars("types") || []).includes(type)));
-					
+						.forEach(tab => {
+							var visible = (tab.vars("types") || []).includes(type);
+							tab.setVisible(visible);
+							if(visible) {
+								graphs.push(tab.getControl().getName().substring("graph_".length));
+							}
+						});
+						
+					this.vars("graphs", graphs);
 				});
-
 			// })();
 			
 			// setup_casagrande(vars);
@@ -1814,11 +1827,11 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 			setup_stages_2(vars);
 			setup_mohr_coulomb(vars, this);
 			setup_parameters(vars);
-
 		}
 	}
 }, [
     ["vcl/Action", ("refresh-select-samples"), {
+    	hotkey: "Ctrl+Shift+R",
     	on() { // TODO implement devtools/Workspace<>-environment as well :-p
     		this.setEnabled(false);
 
@@ -1863,6 +1876,12 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
     			modified.removeVar("blocked");
     			this.setEnabled(true);
     		}, 200);
+    	},
+    	overrides: {
+    		isHotkeyEnabled() {
+    			// the owner of this action is nested in #container-render, which is the parent for all the graphs, which is only visible when the tab is selected, we need to check the owner of the owner to determine whether this action is enabled
+    			return this._owner._owner.isVisible();
+    		}
     	}
     }],
 	["vcl/Action", ("report-generate"), {
@@ -2076,7 +2095,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
     	
     	[("vcl/ui/Group"), {
     		css: {
-    			'': "position:absolute;left:4px;top:4px;background-color: rgba(240, 240, 240, 0.5);backdrop-filter: blur(10px); border-radius:5px;padding:6px 18px;",
+    			'': "position:absolute;left:4px;top:4px;background-color: rgba(240, 240, 240, 0.5);backdrop-filter: blur(10px); border-radius:5px;padding:6px 18px;padding-top:3px;",
     			".block.block.block": "display:block;"
     		}
     	}, [

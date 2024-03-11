@@ -32,8 +32,13 @@ define(["locale"], Util => {
 	    };
 	}
 	function log_line_intersect(x1, y1, x2, y2, x3, y3, x4, y4, count = 0, scale = 1) {
+	/*- make sure lines are oriented correctly (ie. x1<x3 && x3<x4) */
+		if(x1 > x2) { x1 = [x2, x1]; x2 = x1.pop(); x1 = x1.pop(); y1 = [y2, y1]; y2 = y1.pop(); y1 = y1.pop(); }
+		if(x3 > x4) { x3 = [x4, x3]; x4 = x3.pop(); x3 = x3.pop(); y3 = [y4, y3]; y4 = y3.pop(); y3 = y3.pop(); }
+
 	/*- find intersection in logarithimic-plane, straight line on log-scale? 
 		>> N = b * g ^ t; (https://www.youtube.com/watch?v=i3jbTrJMnKs) */
+		
 	
 	/*- (t1,N1), (t2,N2) => g1, b1 */
 		var t1 = y1, N1 = x1;
@@ -50,7 +55,7 @@ define(["locale"], Util => {
 		var b2 = N3 / Math.pow(g2, t3 / scale);
 
 		if(count++ < 10 && (dt1 !== 0 && dt2 !== 0) && (!isFinite(b1) || !isFinite(b2) || !isFinite(g1) || !isFinite(g2))) {
-			// https://chat.openai.com/c/d7dba69d-ba9a-42f5-911c-5058d02937ba - https://chat.openai.com/c/43c3faeb-25be-4e08-bfe8-434530ae19b6
+			// https://chat.openai.com/c/43c3faeb-25be-4e08-bfe8-434530ae19b6
 			var f = Math.pow(10, -([Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))].filter(f => f && Math.abs(f) !== 1)[0]));
 			console.log(`log_line_intersect: y[1-4] *= ${f}  - dt1: ${dt1}, dt2: ${dt2} ${[Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))]}`, js.copy_args(arguments));
 			var r = log_line_intersect(x1, y1*f, x2, y2*f, x3, y3*f, x4, y4*f, count, count);
@@ -82,7 +87,10 @@ define(["locale"], Util => {
 		return {
 			sN1N2: {x: ts[0].N1, y: ts[0].t}, ts: ts,
 			t1: t1, t2: t2, N1: N1, N2: N2, dt1: dt1, g1: g1, b1: b1,
-			t3: t3, t4: t4, N3: N3, N4: N4, dt2: dt2, g2: g2, b2: b2
+			t3: t3, t4: t4, N3: N3, N4: N4, dt2: dt2, g2: g2, b2: b2,
+			org: {
+				x1: x1, y1: y1, x2: x2, y2: y2, x3: x3, y3: y3, x4: x4, y4: y4
+			}
 		};
 	}
 	function log_line_calc(N1, N2, t1, t2) {
@@ -1473,22 +1481,6 @@ function calc_dH(vars, stage) {
 		var o = js.get("onder", opts) || [0, 1];
 		var b = js.get("boven", opts) || [2, 3];
 
-		// if(opts && opts.onder && opts.boven) {
-		// 	js.set("overrides.bjerrum_e.points_pg", [
-		// 		{ x: data_e[o[0]].x, y: data_e[o[0]].y }, 
-		// 		{ x: data_e[o[1]].x, y: data_e[o[1]].y }, 
-		// 		{ x: data_e[b[0]].x, y: data_e[b[0]].y }, 
-		// 		{ x: data_e[b[1]].x, y: data_e[b[1]].y }
-		// 	], vars)
-
-		// 	js.set("overrides.bjerrum_r.points_pg", [
-		// 		{ x: data_rek[o[0]].x, y: data_rek[o[0]].y }, 
-		// 		{ x: data_rek[o[1]].x, y: data_rek[o[1]].y }, 
-		// 		{ x: data_rek[b[0]].x, y: data_rek[b[0]].y }, 
-		// 		{ x: data_rek[b[1]].x, y: data_rek[b[1]].y }
-		// 	], vars)
-		// }
-
 		if((points_e = js.get("overrides.bjerrum_e.points_pg", vars))) {
 			LLi_e = log_line_intersect(
 				points_e[0].x, points_e[0].y, points_e[1].x, points_e[1].y, 
@@ -1502,8 +1494,8 @@ function calc_dH(vars, stage) {
 				js.set("overrides.bjerrum_e.points_pg", (points_e = [
 					{ x: data_e[o[0]].x, y: data_e[o[0]].y }, 
 					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (data_e[b[0]].y + LLi_e.sN1N2.y) / 2), y: (data_e[b[0]].y + LLi_e.sN1N2.y) / 2 },
-					{ x: data_e[b[1]].x, y: data_e[b[1]].y }, 
-					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data_e[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data_e[o[0]].y + LLi_e.sN1N2.y) / 2 }
+					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data_e[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data_e[o[0]].y + LLi_e.sN1N2.y) / 2 },
+					{ x: data_e[b[1]].x, y: data_e[b[1]].y }
 				]), vars)
 			}
 		}
@@ -1521,8 +1513,8 @@ function calc_dH(vars, stage) {
 				js.set("overrides.bjerrum_r.points_pg", (points_rek = [
 					{ x: data_rek[o[0]].x, y: data_rek[o[0]].y }, 
 					{ x: LLi_rek.b1 * Math.pow(LLi_rek.g1, (data_rek[b[0]].y + LLi_rek.sN1N2.y) / 2), y: (data_rek[b[0]].y + LLi_rek.sN1N2.y) / 2 },
-					{ x: data_rek[b[1]].x, y: data_rek[b[1]].y }, 
-					{ x: LLi_rek.b2 * Math.pow(LLi_rek.g2, (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2), y: (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2 }
+					{ x: LLi_rek.b2 * Math.pow(LLi_rek.g2, (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2), y: (data_rek[o[0]].y + LLi_rek.sN1N2.y) / 2 },
+					{ x: data_rek[b[1]].x, y: data_rek[b[1]].y }
 				]), vars)
 			}
 		}
@@ -1556,8 +1548,8 @@ function calc_dH(vars, stage) {
 				js.set("overrides.isotachen.points_pg", (points = [
 					{ x: data[o[0]].x, y: data[o[0]].y }, 
 					{ x: LLi_e.b1 * Math.pow(LLi_e.g1, (data[b[0]].y + LLi_e.sN1N2.y) / 2), y: (data[b[0]].y + LLi_e.sN1N2.y) / 2 },
-					{ x: data[b[1]].x, y: data[b[1]].y }, 
-					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data[o[0]].y + LLi_e.sN1N2.y) / 2 }
+					{ x: LLi_e.b2 * Math.pow(LLi_e.g2, (data[o[0]].y + LLi_e.sN1N2.y) / 2), y: (data[o[0]].y + LLi_e.sN1N2.y) / 2 },
+					{ x: data[b[1]].x, y: data[b[1]].y }
 				]), vars)
 			}
 		}
