@@ -54,7 +54,7 @@ const handlers = {
 	}
 };
 
-["", { handlers: handlers }, [
+["", { handlers: handlers, css: { '&.disabled': "opacity: 0.5;" } }, [
 	
     ["vcl/Action", ("modified"), {
     	state: false,
@@ -94,13 +94,12 @@ const handlers = {
 				key = (vars.headers.filter(_ => _.name.toLowerCase().startsWith(key))[0] || {});
 				return parse === false ? key.raw : key.value;
 			};
-		
 		/*- parse lines => headers, columns and measurements */		
 			var ace = this.udr("#ace");
 			var lines = ace.getLines().filter(_ => _.length); if(lines.length < 2) return; //can't be good
 			var headers = lines.filter(_ => _.split("\"").length < 15);
 			var measurements = lines.filter(_ => _.split("\"").length > 15);
-	
+
 		/*- parse columns */
 			vars.columns = measurements.shift().split(",").map(GDS.removeQuotes);
 			vars.headerValue = headerValue;
@@ -118,9 +117,8 @@ const handlers = {
 			GDS.setup_variables_1(vars, headerValue);
 			GDS.setup_measurements_2(vars);
 			GDS.setup_stages_1(vars);
-			
 			this.applyVar("setup", [], true); // no args, fallback to owner
-			
+
 			this.udr("#array-measurements").setArray(vars.measurements);
 			this.udr("#array-variables").setArray(vars.headers.concat(vars.parameters));
 	
@@ -249,7 +247,27 @@ function getSelectedGraph(cmp) {
 			}
     	}
     }],
-    ["vcl/Action", ("reflect-overrides"), {}],
+    ["vcl/Action", ("reflect-overrides"), {
+    	on(evt) {
+    		var vars = this.vars(["variables"]);
+
+			this.ud("#graphs").getControls().map(c => c.render());
+			
+			const ace = this.udr("#ace"), text = ace.vars("originalText");
+			ace.removeDiffs();
+			ace.setValue(text);
+			ace.removeVar("originalJson");
+			
+			if(evt.overrides !== null) {
+				const patch = evt.overrides.patch || js.get("overrides.patch", vars);
+				if(patch) {
+					ace.applyPatch(text, patch);
+				}
+				ace.vars("originalJson", js.sj(evt.overrides))
+			}
+			this.udr("#modified").setState(false);
+    	}
+    }],
 
     ["vcl/ui/Popup", ("popup-edit-graph-stage"), { 
     	autoPosition: false,
@@ -266,7 +284,6 @@ function getSelectedGraph(cmp) {
 	["vcl/ui/Tabs", ("tabs-graphs"), {}, []],
 	["vcl/ui/Panel", ("graphs"), { 
 		align: "client", css: css, tabIndex: 1,
-		
 		onDispatchChildEvent(child, name, evt, f, args) {
 			var mouse = name.startsWith("mouse");
 			var click = !mouse && name.endsWith("click");
@@ -333,8 +350,6 @@ function getSelectedGraph(cmp) {
 			var trendLine = this.vars(["variables.etl.chart.trendLines.selected"]);
 			GDS.TrendLine.handleEvent(control, trendLine, evt);
 		}
-
-		
 	}, [
 		["vcl/ui/Panel", ("panel-edit-graph"), {
 			align: "top", autoSize: "height", groupIndex: 1,

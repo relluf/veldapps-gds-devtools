@@ -57,10 +57,10 @@ define(["locale"], Util => {
 		if(count++ < 10 && (dt1 !== 0 && dt2 !== 0) && (!isFinite(b1) || !isFinite(b2) || !isFinite(g1) || !isFinite(g2))) {
 			// https://chat.openai.com/c/43c3faeb-25be-4e08-bfe8-434530ae19b6
 			var f = Math.pow(10, -([Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))].filter(f => f && Math.abs(f) !== 1)[0]));
-			console.log(`log_line_intersect: y[1-4] *= ${f}  - dt1: ${dt1}, dt2: ${dt2} ${[Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))]}`, js.copy_args(arguments));
+			// console.log(`log_line_intersect: y[1-4] *= ${f}  - dt1: ${dt1}, dt2: ${dt2} ${[Math.log10(Math.abs(dt1)), Math.log10(Math.abs(dt2))]}`, js.copy_args(arguments));
 			var r = log_line_intersect(x1, y1*f, x2, y2*f, x3, y3*f, x4, y4*f, count, count);
 			r.sN1N2.y /= f;
-			console.log(` => x: ${r.sN1N2.x}, y: ${r.sN1N2.y}`);
+			// console.log(` => x: ${r.sN1N2.x}, y: ${r.sN1N2.y}`);
 			return r;
 		}
 

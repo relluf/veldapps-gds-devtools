@@ -27,6 +27,21 @@ define((require) => ({
 			"n":								"Nee"
 		},
 		
+		"FailureType#": {
+			// "null":								"No Failure",
+			// "bulging":							"Bulging",
+			// "necking":							"Necking",
+			// "singleshearplane":					"Single Shear Plane",
+			// "multipleshearplane":				"Multiple Shear Plane",
+			// "verticalshearplane":				"Vertical Shear Plane"
+			"null":									"Geen bezwijkvorm",
+			"bulging":								"Uitbolling",
+			"necking":								"Insnoering",
+			"singleshearplane":						"Enkelvoudig afschuifvlak",
+			"multipleshearplane":					"Meervoudig afschuifvlak",
+			"verticalshearplane":					"Verticaal afschuifvlak"
+		},
+		
 // Staat van het monster
 // Preparatiemethode
 

@@ -91,15 +91,31 @@ const downloadCSV = (list, filename) => {
 };
 
 ["", { css: css, handlers: handlers }, [
+    [("#loading"), { visible: true }],
     [("#ace"), { 
     	align: "left", width: 475, 
     	action: "toggle-source",
     	executesAction: "none",
         onChange() {
-        	this.setTimeout("render", () => {
+    		var renderer = this.ud("#renderer");
+    		renderer && renderer.setEnabled(false);
 
-        		var renderer = this.ud("#renderer");
-
+			this.setTimeout(("markdiffs"), _=> {
+				var text = this.vars("originalText");
+				var vars = this.vars(["variables"]);
+				if(text) {
+					var diffs = this.markDiffs(text);
+					var patch = this.makePatch(text, diffs);
+					if(patch instanceof Array && patch.length === 0) {
+						delete vars.overrides.patch;
+					} else {
+						vars.overrides.patch = patch;
+					}
+					var org = this.vars("originalJson") || "{}", json = js.sj(vars.overrides);
+					this.udr("#modified").setState(org !== json);
+				}
+			}, 100);
+        	this.setTimeout(("render"), () => {
         		const owner = this._owner;
         		const lines = this.getLines();
         		const refresh = () => {
@@ -115,7 +131,7 @@ const downloadCSV = (list, filename) => {
         			if(type === null) {
         				throw new Error("Unknown GDS type");
         			}
-        			
+
         			B.i([js.sf("vcl-comps:devtools/Renderer<gds.%s>", type), "renderer"])
         				.then(r => {
         					renderer = r;
@@ -128,12 +144,18 @@ const downloadCSV = (list, filename) => {
 							r.print("instantiated", r);
         					
         					refresh();
+        					
+        					r.setTimeout(_=>this.ud("#loading").hide(), 500);
         				});
+
+					this.vars("originalText", this.getValue());
+
         		} else {
-        			refresh();
+		    		renderer.setEnabled(true);
+        			this.nextTick(() => refresh());
         		}
         		
-        	}, 750);
+        	}, 1500);
         }
     }],
 
@@ -225,7 +247,6 @@ const downloadCSV = (list, filename) => {
     		tab.setTimeout("focus-q", _=> this.ud("#focus-q").execute(), 250);
     	}
     }],
-
     ["vcl/Action", ("focus-measurements"), {
     	hotkey: "Shift+Cmd+M",
     	on() {
@@ -234,7 +255,6 @@ const downloadCSV = (list, filename) => {
     		tab.setTimeout("focus-q", _=> this.ud("#focus-q").execute(), 250);
     	}
     }],
-
     ["vcl/Action", ("focus-graphs"), {
     	hotkey: "Shift+Cmd+G",
     	on() {
@@ -246,7 +266,6 @@ const downloadCSV = (list, filename) => {
     		}
     	}
     }],
-
 	["vcl/Action", ("focus-q"), {
 		hotkey: "MetaCtrl+191",
 		on() { this.ud("#q").setFocus(); }

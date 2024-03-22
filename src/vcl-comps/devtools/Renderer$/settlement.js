@@ -552,7 +552,7 @@ const handlers = {
 				xField: "daysT", yField: "y_koppejan"
 			}, {
 				title: "Zetting 1dags [mm]", xAxis: "x2", yAxis: "y1",
-				xField: "x2", yField: "ez1", bullet: "round"
+				xField: "x2", yField: "ez1"//, bullet: "round"
 			}, {
 				title: "Zetting 10-daags [mm]", xAxis: "x2", yAxis: "y1",
 				xField: "x2", yField: "ez10", //bullet: "triangleUp",
@@ -1270,7 +1270,7 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 	return modified === true;
 }
 
-["", { 
+[(""), { 
 	handlers: handlers, 
 	vars: { 
 		layout: "grafieken/documenten/Samendrukkingsproef",
@@ -1317,47 +1317,51 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 				const b = boven.split("-").map(n => parseInt(n, 10) - 1);
 				const o = onder.split("-").map(n => parseInt(n, 10) - 1);
 				
-				this.ud("#toggle-edit-graph").execute();
-				
-				if(all) {
-					
-					delete js.get("overrides.bjerrum_e", vars).points_pg;
-					delete js.get("overrides.bjerrum_r", vars).points_pg;
-					delete js.get("overrides.isotachen", vars).points_pg;
-					delete js.get("overrides.koppejan", vars).points_pg;
-					
-					setup_bjerrum(vars, { boven: b, onder: o });
-					setup_isotachen(vars, { boven: b, onder: o });
-					setup_koppejan(vars, { boven: b, onder: o });
-					
-				} else {
-					switch(selected.getIndex()) {
-						case 3:
-							delete js.get("overrides.bjerrum_e", vars).points_pg;
-							setup_bjerrum(vars, { boven: b, onder: o });
-							break;
-							
-						case 4:
-							delete js.get("overrides.bjerrum_r", vars).points_pg;
-							setup_bjerrum(vars, { boven: b, onder: o });
-							break;
-							
-						case 5:
-							delete js.get("overrides.isotachen", vars).points_pg;
-							setup_isotachen(vars, { boven: b, onder: o });
-							break;
-							
-						case 6:
-							delete js.get("overrides.koppejan", vars).points_pg;
-							setup_koppejan(vars, { boven: b, onder: o });
-							break;
+				const l = this.udr("#loading");
+				l.show(); l.setTimeout(_=> {
+					this.ud("#toggle-edit-graph").execute();
+					if(all) {
+						
+						delete js.get("overrides.bjerrum_e", vars).points_pg;
+						delete js.get("overrides.bjerrum_r", vars).points_pg;
+						delete js.get("overrides.isotachen", vars).points_pg;
+						delete js.get("overrides.koppejan", vars).points_pg;
+						
+						setup_bjerrum(vars, { boven: b, onder: o });
+						setup_isotachen(vars, { boven: b, onder: o });
+						setup_koppejan(vars, { boven: b, onder: o });
+						
+					} else {
+						switch(selected.getIndex()) {
+							case 3:
+								delete js.get("overrides.bjerrum_e", vars).points_pg;
+								setup_bjerrum(vars, { boven: b, onder: o });
+								break;
+								
+							case 4:
+								delete js.get("overrides.bjerrum_r", vars).points_pg;
+								setup_bjerrum(vars, { boven: b, onder: o });
+								break;
+								
+							case 5:
+								delete js.get("overrides.isotachen", vars).points_pg;
+								setup_isotachen(vars, { boven: b, onder: o });
+								break;
+								
+							case 6:
+								delete js.get("overrides.koppejan", vars).points_pg;
+								setup_koppejan(vars, { boven: b, onder: o });
+								break;
+						}
 					}
-				}
-
-				vars.parameters.update();
-				var graphs = this.up().qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_"));
-				graphs.forEach(graph => graph.render());
-
+	
+					this.udr("#modified").setState(true);
+					vars.parameters.update();
+					var graphs = this.up().qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_"));
+					graphs.forEach(graph => graph.render());
+					
+					l.hide();
+				}, 200);
 			}
 		}
 	}],
@@ -1374,7 +1378,8 @@ function TrendLineEditor_stop_BI(vars, stage, chart, owner) {
 			vars.stages.forEach(stage => stage.update("all"));
 			vars.koppejan.update();
 			vars.parameters.update();
-			this.ud("#graphs").getControls().map(c => c.render());
+
+			return this.inherited(arguments);
     	}
     }],
     [("#options"), [
