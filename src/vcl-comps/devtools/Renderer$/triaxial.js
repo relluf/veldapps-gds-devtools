@@ -1453,8 +1453,8 @@ const handlers = {
 		    		js.set("overrides.inputs", inputs, vars);
 		    		this.up().vars("overrides", vars.overrides);
 
-this.print("select-type", inputs['select-type']);
-this.print("inputs", { inputs: inputs, vars: vars });
+// this.print("select-type", inputs['select-type']);
+// this.print("inputs", { inputs: inputs, vars: vars });
 
 					this.ud("#refresh").execute();
 					this.ud("#option_title").set("placeholder", js.sf("%s - %s [%s]", 
@@ -1471,26 +1471,18 @@ this.print("inputs", { inputs: inputs, vars: vars });
 	},
 	
 	'#group_failure onDispatchChildEvent'(component, name, evt, f, args) {
-		if(component instanceof Select) {
-			const modified = this.ud("#modified");
-			
-			const parent = component.getParent();
-			const value = component.getValue();
-			const element = parent.getControls().last();
-
-			if(name === "change") {
-component.print(name, { evt: evt, value: value, parent: parent, modified: modified})
-				// const img = parent.getNode().qs("img");
+		if(name === "change") {
+			if(component instanceof Select) {
+				const modified = this.ud("#modified");
+				
+				const parent = component.getParent();
+				const value = component.getValue();
+				const element = parent.getControls().last();
 
 				element.vars("src", component.getOption().src || "");
 				element.getNode().innerHTML = element.getInnerHtml();
+				// element.render("content");
 				
-				// if(img) {
-				// 	img.src = component.getOption().src || "";
-				// 	if(!modified.vars("blocked")) {
-				// 		modified.setState(true);
-				// 	}
-				// }
 				if(!modified.vars("blocked")) {
 					modified.setState(true);
 				}
