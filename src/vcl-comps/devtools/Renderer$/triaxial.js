@@ -17,6 +17,26 @@ const Input = require("vcl/ui/Input");
 const Select = require("vcl/ui/Select");
 const Hash = require("util/Hash");
 
+const FAILURE_OPTIONS = [{
+	value: "null", content: locale("FailureType#null"),
+	src: ""
+}, {
+	value: "bulging", content: locale("FailureType#bulging"),
+	src: "https://veldoffice.nl/gtlab/assets/Failure-1-bulging.png" || "https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240321-151916-Failure-1-bulging.png"
+}, {
+	value: "necking", content: locale("FailureType#necking"),
+	src: "https://veldoffice.nl/gtlab/assets/Failure-2-necking.png" || "https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240321-151627-Failure-2-necking.png"
+}, {
+	value: "singleshearplane", content: locale("FailureType#singleshearplane"),
+	src: "https://veldoffice.nl/gtlab/assets/Failure-3-singleshearplane.png" || "https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240321-151704-Failure-X-singleshearplane.png"
+}, {
+	value: "multipleshearplane", content: locale("FailureType#multipleshearplane"),
+	src: "https://veldoffice.nl/gtlab/assets/Failure-4-multishearplane.png" || "https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240321-151638-Failure-3-multishearplane.png"
+}, {
+	value: "verticalshearplane", content: locale("FailureType#verticalshearplane"),
+	src: "https://veldoffice.nl/gtlab/assets/Failure-5-verticalshearplane.png" || "https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240321-151650-Failure-4-verticalshearplane.png"
+}];
+
 /* Setup (must be called in same order) */
 function setup_casagrande(vars) {
 	return GDS.setup_casagrande(vars);
@@ -1400,8 +1420,6 @@ const handlers = {
 
 			if(!this.isEnabled()) return;// component.print("!" + name, evt);
 			
-component.print(name, evt);
-
 			var modified = this.ud("#modified");
 			var blocked = modified.vars("blocked");
 			var parent = component.getParent();
@@ -1439,6 +1457,10 @@ this.print("select-type", inputs['select-type']);
 this.print("inputs", { inputs: inputs, vars: vars });
 
 					this.ud("#refresh").execute();
+					this.ud("#option_title").set("placeholder", js.sf("%s - %s [%s]", 
+						locale("TriaxialTest"), 
+						inputs['select-type'],
+						inputs['select-ssms']));
 
 					if(!blocked) {
 						modified.setState(true);
@@ -1448,6 +1470,34 @@ this.print("inputs", { inputs: inputs, vars: vars });
 		}
 	},
 	
+	'#group_failure onDispatchChildEvent'(component, name, evt, f, args) {
+		if(component instanceof Select) {
+			const modified = this.ud("#modified");
+			
+			const parent = component.getParent();
+			const value = component.getValue();
+			const element = parent.getControls().last();
+
+			if(name === "change") {
+component.print(name, { evt: evt, value: value, parent: parent, modified: modified})
+				// const img = parent.getNode().qs("img");
+
+				element.vars("src", component.getOption().src || "");
+				element.getNode().innerHTML = element.getInnerHtml();
+				
+				// if(img) {
+				// 	img.src = component.getOption().src || "";
+				// 	if(!modified.vars("blocked")) {
+				// 		modified.setState(true);
+				// 	}
+				// }
+				if(!modified.vars("blocked")) {
+					modified.setState(true);
+				}
+			}
+		}
+	},
+
 	'#graph_VolumeChange onRender'() {
 	    var vars = this.vars(["variables"]) || { stages: [] };
 	    var selected = "CO";
@@ -1655,36 +1705,51 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 
 [(""), {
 	onLoad() {
-		const ddh = this.app().qs("DragDropHandler<>:root");
-		const group = this.qs("#group_fotos");
-		
 		this.nextTick(_=> { // wait for owner change, currently #0 (vcl/Application) owns this
 			const list = this._owner.down("#measurements");
 			list.vars("autoColumns.attributes", defaultAttributes);
 		});
 
-		this.override({
+		return this.inherited(arguments);
+	},
+	onNodeCreated() {
+		const ddh = this.app().qs("DragDropHandler<>:root");
+		const group = this.qs("#group_photos");
+
+		const editor = this._owner;
+		const renderer = this;
+		
+		editor.override({
 			visibleChanged() {
 				const is = this.isVisible();
 // TODO this should be refactored to Tabs<Document>
-				if(is && !this.vars("listeners")) {
-					this.vars("listeners", ddh.on({
+				if(is && !renderer.vars("listeners")) {
+					renderer.vars("listeners", ddh.on({
 						'dragover': () => {
+							this.print("dragover");
 							group.vars("photo-placeholder", null);
 						},
 						'before-dropped': () => {
 							// console.log("before-dropped");
 						},
-						'dropped': (evt) => { // really need -this- to be Editor<gds>
-							const items = evt.items || evt.files;
+						'dropped': (data, dropped, evt) => { // really need -this- to be Editor<gds>
+							let index = 0;
+							const items = data.items || data.files;
 							const tapped = group.vars("photo-placeholder");
-							const d = !tapped ? 1 : tapped.getIndex();
 							
+							if(tapped) {
+								index = tapped.getIndex() - 1;
+							} else if(evt) {
+								const dropAt = evt.target.up(".photo-placeholder") || evt.target;
+								index = Array.from(dropAt.parentNode.childNodes).indexOf(dropAt) - 1;
+							}
+
 							group.addClass("loading");
 							group.setTimeout(() => Promise
 								.all(items.map(i => Promise.resolve(i.readerResult)))
 								.then(res => items.forEach((item, i) => {
-									var el = group.getControl(i + d);
+									var el = group.getControl(((i + index) % 6) + 1);
+									
 									if(el) {
 										var img = el.getNode().qs("img");
 										if(img) {
@@ -1709,27 +1774,28 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 							group.vars("photo-placeholder", null);
 						},
 						'dragleave': (evt) => {
-							// const group = this.qs("#group_fotos");
+							// const group = this.qs("#group_photos");
 							// group.vars("photo-placeholder", null);
 						}
 					}));
-					this.nextTick(() => { // allow STOP to be done first? not really necessary for the check on parentNode
+					renderer.nextTick(() => { // allow STOP to be done first? not really necessary for the check on parentNode
 						ddh.setEnabled(true);
 						ddh.vars("parentNode", group.getNode());
-						// this.print("START", this.vars("listeners"));
+						// renderer.print("START", this.vars("listeners"));
 					});
-				} else if(!is && this.vars("listeners")) {
+				} else if(!is && renderer.vars("listeners")) {
 					if(ddh.vars("parentNode") === group.getNode()) {
-						ddh.un(this.removeVar("listeners"));
+						ddh.un(renderer.removeVar("listeners"));
 						ddh.setEnabled(false);
-						// this.print("STOPPED");
+						// renderer.print("STOPPED");
 					}
 				}
 				
 				return this.inherited(arguments);
 			}
 		});
-		return this.inherited(arguments);
+		
+		editor.visibleChanged();
 	},
 	handlers: handlers,
 	vars: { 
@@ -1767,12 +1833,17 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 				var inputs = js.get("overrides.inputs", vars) || {};
 				var bar = this.qs("#bar-user-inputs");
 				bar.setEnabled(false);
+				
+				var failures = js.get("overrides.failures", vars) || [];
+				this.qsa("#group_failure < vcl/ui/Select").forEach((select, i) => {
+					select.setValue(failures[i] || null);
+				});
+
 if(!inputs['select-type']) {
 	inputs['select-type'] = "CIUc";
 	this.print("setting overrides.inputs.select-type", "CIUc")
 }
 				
-this.print("overrides.inputs => bar", inputs)
 				for(var k in inputs) {
 					if(!k.startsWith("select-sample-")) {
 						var c = this.qs("#" + k);
@@ -1960,9 +2031,7 @@ this.print("overrides.inputs => bar", inputs)
                 classes: "header",
                 content: "Titel"
             }],
-            ["vcl/ui/Input", "option_title", {
-                // placeholder: "schaal 1:{schaal}"
-            }]
+            ["vcl/ui/Input", "option_title", { enabled: false }]
         ]],
         ["vcl/ui/Group", ("group_description"), {}, [
             ["vcl/ui/Element", {
@@ -1979,7 +2048,7 @@ this.print("overrides.inputs => bar", inputs)
             ["vcl/ui/Button", ("button_generate"), { action: "report-generate" }]
         ]],
         ["vcl/ui/Group", { classes: "seperator" }],
-		["vcl/ui/Group", ("group_fotos"), {
+		["vcl/ui/Group", ("group_photos"), {
 			css: {
 				'&.loading': "background-image: url(/shared/vcl/images/loading.gif); background-position: 50% 0; background-repeat: no-repeat;",
 				'.photo-placeholder': {
@@ -2011,29 +2080,58 @@ this.print("overrides.inputs => bar", inputs)
 			["vcl/ui/Element", { classes: "header", content: "Deformatiefoto's" }],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample1",
-				content: "<div>Monster 1,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 1,<br>initieel</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample1",
-				content: "<div>Monster 1,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 1,<br>uiteindelijk</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample2",
-				content: "<div>Monster 2,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 2,<br>initieel</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample2",
-				content: "<div>Monster 2,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 2,<br>uiteindelijk</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample3",
-				content: "<div>Monster 3,<br>foto 1</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 3,<br>initieel</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}],
 			["vcl/ui/Element", {
 				classes: "photo-placeholder sample3",
-				content: "<div>Monster 3,<br>foto 2</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
+				content: "<div>Monster 3,<br>uiteindelijk</div><img><dt class='upload-overlay'></dt><i class='fa fa-trash'></i>"
 			}]
 			
+		]],
+        ["vcl/ui/Group", { classes: "seperator" }],
+		["vcl/ui/Group", ("group_failure"), {}, [
+			["vcl/ui/Element", { classes: "header", content: "Bezwijkvorm" }],
+			["vcl/ui/Group", { 
+				css: {
+					'': "padding-left: 10px; padding-top: 8px;",
+					'img': "width: 100px; height: 100px; border: 1px solid black; margin: 25px;",
+					'img[src="undefined"]': "display: none;",
+					'img[src=""]': "display: none;"
+				} 
+			}, [
+				["vcl/ui/Group", ("group_failure1"), {}, [
+					["vcl/ui/Element", { content: "Monster 1" }],
+		            ["vcl/ui/Select", "select_failure1", { options: FAILURE_OPTIONS }],
+		            ["vcl/ui/Element", { content: "<img src='`${v('src')}`'>" }]
+				]],
+				["vcl/ui/Group", ("group_failure2"), {}, [
+					["vcl/ui/Element", { content: "Monster 2" }],
+		            ["vcl/ui/Select", "select_failure2", { options: FAILURE_OPTIONS }],
+		            ["vcl/ui/Element", { content: "<img src='`${v('src')}`'>" }]
+				]],
+				["vcl/ui/Group", ("group_failure3"), {}, [
+					["vcl/ui/Element", { content: "Monster 3" }],
+		            ["vcl/ui/Select", "select_failure3", { options: FAILURE_OPTIONS }],
+		            ["vcl/ui/Element", { content: "<img src='`${v('src')}`'>" }]
+				]]
+				
+			]]
 		]],
 		["vcl/ui/Group", { classes: "seperator" }],
         ["vcl/ui/Group", ("group_options"), {}, [
@@ -2053,7 +2151,7 @@ this.print("overrides.inputs => bar", inputs)
 	]],
     [("#reflect-overrides"), {
     	on(evt) {
-    		var vars = this.vars(["variables"]), root = this.up();
+    		var vars = this.vars(["variables"]);
 
     		if(evt.overrides) {
     			vars.overrides = evt.overrides;
@@ -2061,6 +2159,7 @@ this.print("overrides.inputs => bar", inputs)
     			if(!vars.overrides) return;
     			delete vars.overrides.graphs;
     			delete vars.overrides.photos;
+    			delete vars.overrides.failures;
     			delete vars.overrides.inputs;
     			delete vars.overrides['origin-shifting'];
     			this.ud("#bar-user-inputs").getControls().forEach(c => {
@@ -2068,12 +2167,17 @@ this.print("overrides.inputs => bar", inputs)
     					c.revertPropertyValue("value");
     				}
     			});
+
+    			var root = this.up();
     			GDSFotos.clearAll(root);
+    			// Failures.clearAll(root);
+    			this.up().qsa("#group_failure < vcl/ui/Select").set("value", null);
     			undoOriginShifting(root, vars);
+    			
     			this.ud("#refresh").execute();
     		}
 
-			this.ud("#graphs").getControls().map(c => c.render());
+			return this.inherited(arguments);
     	}
     }],
     
@@ -2109,6 +2213,7 @@ this.print("overrides.inputs => bar", inputs)
 	    		value: "MS-3",
 	    		onChange() {
 	    			const ms = (this.getValue() !== "SS");
+	    			const ms1 = (this.getValue() === "MS-1");
 	    			this.ud("#select-sample-1").getParent().setVisible(ms);
 	    			
 	    			if(!ms) {
@@ -2117,6 +2222,12 @@ this.print("overrides.inputs => bar", inputs)
 	    			} else {
 	    				// this.ud("#refresh-select-samples").execute();
 	    			}
+	    			
+	    			this.ud("#group_photos")._controls.forEach((c, i) => {
+	    				c.setVisible((ms && !ms1) || (i < 3));
+	    			});
+	    			
+	    			this.ud("#group_photos").updateChildren(true, true);
 	    		}
 	    	}]
     	]],
@@ -2324,15 +2435,15 @@ this.print("overrides.inputs => bar", inputs)
 			}
 		}
 	}, [
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation", vars: { types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress", vars: { types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure", vars: { types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio", vars: { types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ", vars: { types: ["CIUc", "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange"), control: "graph_VolumeChange", vars: { 'can-edit': true, types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:PorePressureDissipation"), control: "graph_PorePressureDissipation", vars: { types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStress"), control: "graph_DeviatorStress", vars: { types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:WaterOverpressure"), control: "graph_WaterOverpressure", vars: { types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:EffectiveHighStressRatio"), control: "graph_EffectiveHighStressRatio", vars: { types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:DeviatorStressQ"), control: "graph_DeviatorStressQ", vars: { types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
 		["vcl/ui/Tab", { visible: false, text: locale("Graph:VolumeChange_SS"), control: "graph_VolumeChange_SS", vars: { types: ["CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true, types: ["CIUc", "CIDc"] } }],
-		["vcl/ui/Tab", { visible: false, text: locale("Graph:Taylor"), control: "graph_Taylor", vars: { types: [ "CIDc"] } }],
+		["vcl/ui/Tab", { visible: false, text: locale("Graph:ShearStress"), control: "graph_ShearStress", vars: { 'can-edit': true, types: ["CIUc", "CIDc", "CAUc", "CADc"] } }],
+		// ["vcl/ui/Tab", { visible: false, text: locale("Graph:Taylor"), control: "graph_Taylor", vars: { types: [ "CIDc"] } }],
 
 		["vcl/ui/Bar", ("menubar"), { align: "right", autoSize: "both", classes: "nested-in-tabs" }, [
 			["vcl/ui/Button", ("button-edit-graph"), { 
@@ -2474,10 +2585,10 @@ this.print("overrides.inputs => bar", inputs)
 				}
 			}
 		}],
-		["vcl/ui/Panel", ("graph_Taylor"), {
-			align: "client", visible: false, 
-			classes: "multiple"
-		}],
+		// ["vcl/ui/Panel", ("graph_Taylor"), {
+		// 	align: "client", visible: false, 
+		// 	classes: "multiple"
+		// }],
 
 		[("#panel-edit-graph"), { css: { '*': "display:inline-block;"} }, [
 		]]
