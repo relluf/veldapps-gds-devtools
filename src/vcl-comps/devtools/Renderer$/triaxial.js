@@ -1436,7 +1436,7 @@ const handlers = {
 			this.setTimeout("refresh", () => {
 				if(!this.isEnabled()) {
 					this.print("timeout triggered, but disabled now")
-					return;
+					// return;
 				}
 
 	    		var vars = this.vars(["variables"]);
@@ -1446,16 +1446,13 @@ const handlers = {
 		    		delete vars.stages.CO;
 		    		delete vars.stages.SH;
 		    		
-		    		var inputs = Object.fromEntries(this.qsa("< *")
-						.filter(c => (c instanceof Input) || (c instanceof Select))
-						.map(c => [c._name, c.getValue()]));
+		    		var inputs = Object.fromEntries(
+		    			this.qsa("< *")
+							.filter(c => (c instanceof Input) || (c instanceof Select))
+							.map(c => [c._name, c.getValue()]));
 					
 		    		js.set("overrides.inputs", inputs, vars);
 		    		this.up().vars("overrides", vars.overrides);
-
-// this.print("select-type", inputs['select-type']);
-// this.print("inputs", { inputs: inputs, vars: vars });
-
 					this.ud("#refresh").execute();
 					this.ud("#option_title").set("placeholder", js.sf("%s - %s [%s]", 
 						locale("TriaxialTest"), 
@@ -1469,7 +1466,6 @@ const handlers = {
 			}, 250);
 		}
 	},
-	
 	'#group_failure onDispatchChildEvent'(component, name, evt, f, args) {
 		if(name === "change") {
 			if(component instanceof Select) {

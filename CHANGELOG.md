@@ -1,3 +1,20 @@
+### 2024/03/24: 2.0.16
+
+* Features dynamic content property :-p
+
+![20240324-102116-2fjtA2](https://raw.githubusercontent.com/relluf/screenshots/master/uPic/202403/20240324-102116-2fjtA2.png)
+
+**Settlement** & **Triaxial**
+
+* Updates title according to selection accepts drag-events for Variabelen- and Metingen-tabs as well allows to drop at specific target adds support for failure types per sample
+* Improves loading sequence for large files (which GDS files typically are) 
+* Shows `#loading` (while loading) 
+* Marks `#ace`' diffs when available localizes FailureType# 
+* Reduces use of print() and console.logging
+* Updates the docs
+
+
+
 ### 2024/03/11: 2.0.15
 
 **Settlement**
