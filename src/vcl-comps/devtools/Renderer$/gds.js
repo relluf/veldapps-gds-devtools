@@ -58,7 +58,12 @@ const handlers = {
 	
     ["vcl/Action", ("modified"), {
     	state: false,
-    	visible: "state"
+    	visible: "state",
+    	on() {
+    		// Use `this.ud("#modified").execute()` to refresh the modified state
+    		// this.print("updating");
+    		this.setState(true);
+    	}
     }],
     ["vcl/Action", ("editing"), {
     	state: false,
@@ -144,6 +149,14 @@ const handlers = {
 			
 			this.ud("#graphs").getControls().forEach(c => c.setState("invalidated", true));
 			this.print("parsed-vars", { columns: vars.columns, headers: vars.headers, stages: vars.stages, variables: vars, measurements: vars.measurements, overrides: vars.overrides , parameters: vars.parameters });
+			
+			
+			const run = this.vars("parsed-runs", (this.vars("parsed-runs") || 0) + 1);
+			if(run > 1) {
+				this.app().toast({content:"<i class='fa fa-refresh'></i>", classes: "big glassy fade"});
+			}
+			
+			this.print("parsed-runs", run);
 		}
     }],
 

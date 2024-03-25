@@ -1101,7 +1101,7 @@ function makeChart(c, opts) {
 
 						delete vars.overrides['origin-shifting'][attr][index];
 						samples[index].qs("#renderer #refresh").execute();
-						samples[index].qs("#modified").setState(true);
+						samples[index].qs("#modified").execute();
 						this.up("Home<>").qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_")).forEach(p => p.render());
 					}
 					return;
@@ -1119,7 +1119,7 @@ function makeChart(c, opts) {
 					
 					js.set(`overrides.origin-shifting.${attr}.${index}`, { x: x, y: y, delta: delta }, vars);
 					samples[index].qs("#renderer #refresh").execute();
-					samples[index].qs("#modified").setState(true);
+					samples[index].qs("#modified").execute();
 					this.up("Home<>").qsa("vcl/ui/Panel").filter(p => p.getName().startsWith("graph_")).forEach(p => p.render());
 				}
 			}
@@ -1460,7 +1460,7 @@ const handlers = {
 						inputs['select-ssms']));
 
 					if(!blocked) {
-						modified.setState(true);
+						modified.execute();
 					}
 				}
 			}, 250);
@@ -1480,7 +1480,7 @@ const handlers = {
 				// element.render("content");
 				
 				if(!modified.vars("blocked")) {
-					modified.setState(true);
+					modified.execute();
 				}
 			}
 		}
@@ -1681,7 +1681,7 @@ const handlers = {
 			this.removeVar("ddh-item");
 			this.removeVar("ddh-item-hash");
 			this.removeVar("vo:foto");
-			this.ud("#modified").setState(true);
+			this.ud("#modified").execute();
 		} else {
 			const ddh = this.app().qs("DragDropHandler<>:root");
 			this.getParent().vars("photo-placeholder", this);
@@ -1749,7 +1749,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 										el.syncClass("has-photo", !!img);
 									}
 								}))
-								.then(() => this.ud("#modified").setState(true))
+								.then(() => this.ud("#modified").execute())
 								.finally(() => {
 									GDSFotos.refresh(this);
 									group.removeClass("loading");
@@ -1801,7 +1801,7 @@ const defaultAttributes = "|Stage|Time|Volume Change|Pore Pressure|PWP Ratio|Axi
 		setup() {
 			const vars = this.vars(["variables"]), n = vars.stages.length;
 			const sacosh = {SA: n - 3, CO: n - 2, SH: n - 1};
-
+			
 			((setup_triaxial) => {
 				let adm = this.udr("#allow-disabling-measurements");
 				adm.vars("visible", false);
@@ -2179,12 +2179,6 @@ if(!inputs['select-type']) {
     		'>.{Group}': "display: block;"
     	}
     }, [
-    	// ["vcl/ui/PopupButton", {
-    	// 	content: locale("TriaxialTest.report") + " <i class='fa fa-chevron-down'></i>",
-    	// 	css: "position:absolute;left:0;top:0;",
-    	// 	popup: "popup-reports"
-    	// }],
-    	
     	[("vcl/ui/Group"), {
     		css: {
     			'': "position:absolute;left:4px;top:4px;background-color: rgba(240, 240, 240, 0.5);backdrop-filter: blur(10px); border-radius:5px;padding:6px 18px;padding-top:3px;",

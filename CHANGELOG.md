@@ -6,7 +6,8 @@
 
 **Settlement** & **Triaxial**
 
-* Updates title according to selection accepts drag-events for Variabelen- and Metingen-tabs as well allows to drop at specific target adds support for failure types per sample
+* Updates title according to selection
+* Accepts drag-events for Variabelen- and Metingen-tabs as well allows to drop at specific target adds support for failure types per sample
 * Improves loading sequence for large files (which GDS files typically are) 
 * Shows `#loading` (while loading) 
 * Marks `#ace`' diffs when available localizes FailureType# 
